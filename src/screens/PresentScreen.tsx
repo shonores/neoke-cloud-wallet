@@ -266,7 +266,7 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
         </div>
 
         {/* Scrollable content */}
-        <div className="px-5 flex-1 overflow-y-auto pb-4 space-y-6">
+        <div className="px-5 flex-1 overflow-y-auto pb-28 space-y-6">
           {/* Reason */}
           {preview.verifier.purpose && (
             <div>
@@ -311,7 +311,7 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
         </div>
 
         {/* Pinned Continue button */}
-        <div className="px-5 pt-4 pb-10 flex-shrink-0">
+        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto px-5 pt-4 pb-10 bg-[#F2F2F7] z-40">
           <PrimaryButton onClick={handleShare}>
             Continue
           </PrimaryButton>

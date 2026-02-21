@@ -257,7 +257,7 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-5 pb-4">
+        <div className="flex-1 overflow-y-auto px-5 pb-28">
           <p className="text-[16px] font-bold text-[#1c1c1e] mb-3">Info to save</p>
 
           <div className="bg-white rounded-2xl flex items-center px-4 py-3 shadow-sm">
@@ -279,7 +279,7 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         </div>
 
         {/* Pinned action buttons */}
-        <div className="px-5 pt-4 pb-10 space-y-3 flex-shrink-0">
+        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto px-5 pt-4 pb-10 space-y-3 bg-[#F2F2F7] z-40">
           <PrimaryButton onClick={handleAccept} loading={processing}>
             Save
           </PrimaryButton>
