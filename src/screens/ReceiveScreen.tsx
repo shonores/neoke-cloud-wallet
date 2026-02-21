@@ -2,10 +2,13 @@ import { useState, useCallback, useEffect } from 'react';
 import { receiveCredential, fetchKeys } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { detectUriType } from '../utils/uriRouter';
-import { getCredentialLabel, extractFields } from '../utils/credentialHelpers';
+import {
+  getCredentialLabel,
+  getCredentialDescription,
+  getCardColor,
+} from '../utils/credentialHelpers';
 import { saveLocalCredential } from '../store/localCredentials';
 import QRScanner from '../components/QRScanner';
-import ConsentLayout from '../components/ConsentLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import type { Credential, ViewName } from '../types';
@@ -153,61 +156,78 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
   // ── Consent ──
   if (stage === 'consent' && receivedCredential) {
     const label = getCredentialLabel(receivedCredential);
-    const issuer = receivedCredential.issuer ?? 'Unknown Issuer';
-    const fields = extractFields(receivedCredential);
+    const description = getCredentialDescription(receivedCredential);
+    const { backgroundColor } = getCardColor(receivedCredential);
 
     return (
       <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
-        <div className="pt-12 px-5 pb-2 flex-shrink-0">
+        {/* iOS-style drag handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full bg-[#c7c7cc]" />
+        </div>
+
+        {/* Close button */}
+        <div className="px-5 pt-2 pb-4">
           <button
             onClick={() => navigate('dashboard')}
-            className="text-[#8e8e93] hover:text-[#1c1c1e] text-sm flex items-center gap-1.5 min-h-[44px]"
+            className="w-9 h-9 rounded-full bg-black/8 flex items-center justify-center text-[#1c1c1e] hover:bg-black/12 transition-colors"
+            aria-label="Close"
           >
-            ← Cancel
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
-        <div className="flex-1">
-          <ConsentLayout
-            icon="📥"
-            title="New Credential"
-            subtitle="An issuer wants to add a credential to your wallet"
-            actions={[
-              { label: 'Decline', onClick: () => navigate('dashboard'), variant: 'secondary' },
-              { label: 'Accept', onClick: handleAccept, variant: 'primary', loading: processing },
-            ]}
-          >
-            <div className="bg-[#f2f2f7] rounded-2xl p-4 space-y-1">
-              <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide">Issuer</p>
-              <p className="text-sm text-[#1c1c1e] font-mono break-all">{issuer}</p>
-            </div>
 
-            <div className="bg-[#f2f2f7] rounded-2xl p-4 space-y-1">
-              <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide">Credential Type</p>
-              <p className="text-sm text-[#1c1c1e] font-semibold">{label}</p>
-              {receivedCredential.docType && (
-                <p className="text-xs text-[#8e8e93] font-mono">{receivedCredential.docType}</p>
+        {/* Title */}
+        <div className="px-5 pb-7">
+          <h2 className="text-[28px] font-bold text-[#1c1c1e] leading-tight">
+            Save your {label}?
+          </h2>
+        </div>
+
+        {/* Info to save */}
+        <div className="px-5 flex-1">
+          <p className="text-[16px] font-bold text-[#1c1c1e] mb-3">Info to save</p>
+
+          {/* Credential row card */}
+          <div className="bg-white rounded-2xl flex items-center px-4 py-3 shadow-sm">
+            {/* Mini thumbnail */}
+            <div
+              className="w-[72px] h-[46px] rounded-xl flex-shrink-0 mr-4"
+              style={{ backgroundColor }}
+            />
+            {/* Name + description */}
+            <div className="flex-1 min-w-0">
+              <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{label}</p>
+              {description && (
+                <p className="text-[13px] text-[#8e8e93] truncate">{description}</p>
               )}
             </div>
+            {/* Chevron */}
+            <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="flex-shrink-0 ml-3">
+              <path d="M1 1l6 6-6 6" stroke="#c7c7cc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </div>
 
-            {fields.length > 0 && (
-              <div className="bg-[#f2f2f7] rounded-2xl p-4">
-                <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide mb-3">Data included</p>
-                <div className="space-y-2">
-                  {fields.map((field, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm text-[#1c1c1e]">
-                      <span className="text-blue-500 flex-shrink-0" aria-hidden>☑</span>
-                      <span>{field.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <p className="text-xs text-[#aeaeb2] text-center leading-relaxed px-2">
-              By accepting, you consent to storing this credential in your cloud wallet.
-              You can view and present it at any time.
-            </p>
-          </ConsentLayout>
+        {/* Action buttons */}
+        <div className="px-5 pt-8 pb-10 space-y-3">
+          <button
+            onClick={handleAccept}
+            disabled={processing}
+            className="w-full py-4 rounded-full text-white font-semibold text-[17px] transition-opacity disabled:opacity-60"
+            style={{ backgroundColor: '#5B4FE9' }}
+          >
+            {processing ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            onClick={() => navigate('dashboard')}
+            className="w-full py-3 text-[15px] font-medium text-center"
+            style={{ color: '#5B4FE9' }}
+          >
+            Maybe later
+          </button>
         </div>
       </div>
     );

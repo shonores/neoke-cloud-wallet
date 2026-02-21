@@ -3,15 +3,13 @@ import { previewPresentation, respondPresentation } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { detectUriType } from '../utils/uriRouter';
 import {
-  parseDisclosedClaim,
   getCandidateLabel,
-  getCandidateGradient,
+  getCardColorForTypes,
 } from '../utils/credentialHelpers';
 import QRScanner from '../components/QRScanner';
-import ConsentLayout from '../components/ConsentLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
-import type { Credential, VPPreviewResponse, VPCandidate, ViewName } from '../types';
+import type { Credential, VPPreviewResponse, ViewName } from '../types';
 
 type Stage = 'scan' | 'loading' | 'consent' | 'presenting' | 'success' | 'error';
 
@@ -27,8 +25,6 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
   const [showManual, setShowManual] = useState(!!initialUri);
   const [currentRequestUri, setCurrentRequestUri] = useState(initialUri ?? '');
   const [preview, setPreview] = useState<VPPreviewResponse | null>(null);
-  // selections: { [queryId]: candidateIndex }
-  const [selections, setSelections] = useState<Record<string, number>>({});
   const [error, setError] = useState('');
   const [successResult, setSuccessResult] = useState<{ redirectUri?: string } | null>(null);
 
@@ -63,12 +59,6 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
         return;
       }
 
-      // Initialise selections to the first candidate of each query
-      const initial: Record<string, number> = {};
-      for (const q of data.queries) {
-        if (q.candidates.length > 0) initial[q.queryId] = q.candidates[0].index;
-      }
-      setSelections(initial);
       setPreview(data);
       setStage('consent');
     } catch (err) {
@@ -94,7 +84,7 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
     if (!state.token || !currentRequestUri) return;
     setStage('presenting');
     try {
-      const result = await respondPresentation(state.token, currentRequestUri, selections);
+      const result = await respondPresentation(state.token, currentRequestUri);
       setSuccessResult({ redirectUri: result.redirectUri });
       setStage('success');
     } catch (err) {
@@ -183,138 +173,88 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
 
     return (
       <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
-        <div className="pt-12 px-5 pb-2 flex-shrink-0">
+        {/* iOS-style drag handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 rounded-full bg-[#c7c7cc]" />
+        </div>
+
+        {/* Close button */}
+        <div className="px-5 pt-2 pb-4">
           <button
             onClick={() => navigate('dashboard')}
-            className="text-[#8e8e93] hover:text-[#1c1c1e] text-sm flex items-center gap-1.5 min-h-[44px]"
+            className="w-9 h-9 rounded-full bg-black/8 flex items-center justify-center text-[#1c1c1e] hover:bg-black/12 transition-colors"
+            aria-label="Close"
           >
-            ← Cancel
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
-        <div className="flex-1">
-          <ConsentLayout
-            icon="📤"
-            title="Share Credential"
-            subtitle="A verifier is requesting your data"
-            actions={[
-              { label: 'Decline', onClick: () => navigate('dashboard'), variant: 'secondary' },
-              { label: 'Share', onClick: handleShare, variant: 'primary' },
-            ]}
-          >
-            {/* Verifier */}
-            <div className="bg-[#f2f2f7] rounded-2xl p-4 space-y-1">
-              <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide">Verifier</p>
-              <p className="text-sm text-[#1c1c1e] font-semibold break-all">{verifierName}</p>
-              {preview.verifier.name && (
-                <p className="text-xs text-[#8e8e93] font-mono break-all">{preview.verifier.clientId}</p>
-              )}
-            </div>
 
-            {/* Purpose */}
-            {preview.verifier.purpose && (
-              <div className="bg-[#f2f2f7] rounded-2xl p-4 space-y-1">
-                <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide">Purpose</p>
-                <p className="text-sm text-[#1c1c1e]">{preview.verifier.purpose}</p>
+        {/* Title */}
+        <div className="px-5 pb-7">
+          <h2 className="text-[28px] font-bold text-[#1c1c1e] leading-tight">
+            {verifierName} wants you to share the following info
+          </h2>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="px-5 flex-1 overflow-y-auto pb-4 space-y-6">
+          {/* Reason */}
+          {preview.verifier.purpose && (
+            <div>
+              <p className="text-[16px] font-bold text-[#1c1c1e] mb-3">Reason</p>
+              <div className="bg-white rounded-2xl px-4 py-3 shadow-sm">
+                <p className="text-[14px] text-[#1c1c1e]">{preview.verifier.purpose}</p>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Queries */}
-            {preview.queries.map((query) => {
-              const selectedIdx = selections[query.queryId] ?? query.candidates[0]?.index ?? 0;
-              const selectedCandidate: VPCandidate | undefined =
-                query.candidates.find((c) => c.index === selectedIdx) ?? query.candidates[0];
+          {/* Info to share */}
+          <div>
+            <p className="text-[16px] font-bold text-[#1c1c1e] mb-3">Info to share</p>
+            <div className="space-y-3">
+              {preview.queries.map((query) => {
+                const cand = query.candidates[0];
+                if (!cand) return null;
+                const { backgroundColor } = getCardColorForTypes(cand.type);
+                const label = getCandidateLabel(cand.type);
 
-              return (
-                <div key={query.queryId} className="space-y-2">
-                  {/* Multi-candidate picker */}
-                  {query.candidates.length > 1 ? (
-                    <div>
-                      <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">
-                        Choose credential{!query.required && ' (optional)'}
-                      </p>
-                      <div className="space-y-2">
-                        {query.candidates.map((cand) => {
-                          const isSelected = selectedIdx === cand.index;
-                          const gradient = getCandidateGradient(cand.type);
-                          const label = getCandidateLabel(cand.type);
-                          return (
-                            <button
-                              key={cand.index}
-                              onClick={() => setSelections((s) => ({ ...s, [query.queryId]: cand.index }))}
-                              className={`w-full rounded-2xl p-3 flex items-center gap-3 border-2 transition-all ${
-                                isSelected ? 'border-blue-500 shadow-md' : 'border-transparent opacity-70'
-                              }`}
-                              style={{ background: gradient.from }}
-                            >
-                              <div
-                                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                                style={{ background: 'rgba(255,255,255,0.2)' }}
-                              >
-                                <span className="text-lg" aria-hidden>🪪</span>
-                              </div>
-                              <div className="min-w-0 text-left flex-1">
-                                <p className="text-sm font-semibold text-white">{label}</p>
-                                <p className="text-xs text-white/70 truncate">{cand.issuer}</p>
-                              </div>
-                              {isSelected && (
-                                <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center flex-shrink-0">
-                                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                    <path d="M2 5l2.5 2.5L8 3" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
+                return (
+                  <div
+                    key={query.queryId}
+                    className="bg-white rounded-2xl flex items-center px-4 py-3 shadow-sm"
+                  >
+                    {/* Mini credential thumbnail */}
+                    <div
+                      className="w-[72px] h-[46px] rounded-xl flex-shrink-0 mr-4"
+                      style={{ backgroundColor }}
+                    />
+                    {/* Label + issuer */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{label}</p>
+                      <p className="text-[13px] text-[#8e8e93] truncate">{cand.issuer}</p>
                     </div>
-                  ) : query.candidates.length === 1 ? (
-                    <div className="space-y-1">
-                      <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide">From your wallet</p>
-                      <div
-                        className="rounded-2xl p-4 flex items-center gap-3"
-                        style={{ background: getCandidateGradient(query.candidates[0].type).from }}
-                      >
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                          style={{ background: 'rgba(255,255,255,0.2)' }}
-                        >
-                          <span className="text-xl" aria-hidden>🪪</span>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-white">
-                            {getCandidateLabel(query.candidates[0].type)}
-                          </p>
-                          <p className="text-xs text-white/70 truncate">{query.candidates[0].issuer}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
+                    {/* Chevron */}
+                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="flex-shrink-0 ml-3">
+                      <path d="M1 1l6 6-6 6" stroke="#c7c7cc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
 
-                  {/* Fields being disclosed for the selected candidate */}
-                  {selectedCandidate && selectedCandidate.claims.disclosed.length > 0 && (
-                    <div className="bg-[#f2f2f7] rounded-2xl p-4">
-                      <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide mb-3">
-                        Fields to share
-                      </p>
-                      <div className="space-y-2">
-                        {selectedCandidate.claims.disclosed.map((claim, i) => (
-                          <div key={i} className="flex items-center gap-2 text-sm text-[#1c1c1e]">
-                            <span className="text-blue-500 flex-shrink-0" aria-hidden>☑</span>
-                            <span>{parseDisclosedClaim(claim)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
-            <p className="text-xs text-[#aeaeb2] text-center leading-relaxed px-2">
-              Only the requested fields will be shared. This action cannot be undone.
-            </p>
-          </ConsentLayout>
+        {/* Continue button */}
+        <div className="px-5 pt-6 pb-10">
+          <button
+            onClick={handleShare}
+            className="w-full py-4 rounded-full text-white font-semibold text-[17px] transition-opacity"
+            style={{ backgroundColor: '#5B4FE9' }}
+          >
+            Continue
+          </button>
         </div>
       </div>
     );

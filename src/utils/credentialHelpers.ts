@@ -193,6 +193,21 @@ export function getCardColor(credential: Credential): { backgroundColor: string;
   return { backgroundColor: g.from, textColor: '#ffffff' };
 }
 
+/** Card colour for a VP candidate (has only type array, not a full Credential). */
+export function getCardColorForTypes(types: string[]): { backgroundColor: string; textColor: string } {
+  for (const t of types) {
+    if (DOC_TYPE_COLORS[t]) return DOC_TYPE_COLORS[t];
+  }
+  // Hash-based gradient fallback
+  const str = types[0] ?? 'default';
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  const g = CARD_GRADIENTS[Math.abs(hash) % CARD_GRADIENTS.length];
+  return { backgroundColor: g.from, textColor: '#ffffff' };
+}
+
 // ============================================================
 // Issuer display
 // ============================================================
