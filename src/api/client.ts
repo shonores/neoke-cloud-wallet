@@ -104,18 +104,56 @@ export async function apiKeyAuth(apiKey: string): Promise<AuthResponse> {
 }
 
 // ============================================================
-// Credentials
+// Credentials — discovered via a broad VP preview
 // ============================================================
-export async function listCredentials(token: string): Promise<Credential[]> {
-  const result = await request<Credential[] | { credentials?: Credential[] } | unknown>(
-    '/:/credentials',
-    { token }
-  );
-  if (Array.isArray(result)) return result;
-  if (typeof result === 'object' && result !== null && 'credentials' in result) {
-    return (result as { credentials: Credential[] }).credentials ?? [];
+
+/**
+ * The /:/credentials REST endpoint does not exist on this server.
+ * Instead we create a transient VP request with no doctype filter
+ * (matches ALL mso_mdoc credentials) and preview it to get the
+ * authoritative list of credentials currently in the wallet.
+ */
+export async function discoverWalletCredentials(token: string): Promise<Credential[]> {
+  // 1. Create a broad VP discovery request
+  const vpResp = await request<{ invocationUrl: string }>('/:/auth/siop/request', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({
+      mode: 'reference',
+      responseType: 'vp_token',
+      responseMode: 'direct_post',
+      dcqlQuery: {
+        credentials: [{
+          id: 'discovery',
+          format: 'mso_mdoc',
+          require_cryptographic_holder_binding: false,
+        }],
+      },
+    }),
+  });
+
+  // 2. Preview to get all candidates
+  const preview = await previewPresentation(token, vpResp.invocationUrl);
+
+  // 3. Convert candidates to Credential objects (metadata only)
+  const discovered: Credential[] = [];
+  for (const query of preview.queries) {
+    for (const cand of query.candidates) {
+      const docType = cand.type[0] ?? '';
+      const nowSec = Math.floor(Date.now() / 1000);
+      discovered.push({
+        id: `server-${docType}-${cand.index}`,
+        type: cand.type,
+        issuer: cand.issuer,
+        docType,
+        expirationDate: cand.expiresAt
+          ? new Date(cand.expiresAt * 1000).toISOString()
+          : undefined,
+        status: cand.expiresAt && nowSec > cand.expiresAt ? 'expired' : 'active',
+      });
+    }
   }
-  return [];
+  return discovered;
 }
 
 // ============================================================

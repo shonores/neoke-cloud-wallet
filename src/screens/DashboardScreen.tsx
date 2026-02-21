@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { listCredentials, ApiError } from '../api/client';
+import { discoverWalletCredentials } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { getLocalCredentials, clearLocalCredentials } from '../store/localCredentials';
+import { getLocalCredentials, mergeWithLocalCredentials } from '../store/localCredentials';
 import CredentialStack from '../components/CredentialStack';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
@@ -18,7 +18,7 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [fromLocalCache, setFromLocalCache] = useState(false);
+  const [usingLocalFallback, setUsingLocalFallback] = useState(false);
 
   const token = state.token;
 
@@ -26,31 +26,27 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
     if (!token) return;
     setLoading(true);
     setError('');
-    setFromLocalCache(false);
+    setUsingLocalFallback(false);
+
     try {
-      const creds = await listCredentials(token);
-      setCredentials(creds);
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 404) {
-        setCredentials(getLocalCredentials());
-        setFromLocalCache(true);
+      // Discover credentials from the server via VP preview (authoritative)
+      const serverCreds = await discoverWalletCredentials(token);
+      // Merge with local data for richer field display; syncs localStorage
+      const merged = mergeWithLocalCredentials(serverCreds);
+      setCredentials(merged);
+    } catch {
+      // Network failure or server down — fall back to whatever is in localStorage
+      const local = getLocalCredentials();
+      setCredentials(local);
+      if (local.length > 0) {
+        setUsingLocalFallback(true);
       } else {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Unable to load credentials. Please try again.'
-        );
+        setError('Unable to reach the wallet server. Please check your connection.');
       }
     } finally {
       setLoading(false);
     }
   }, [token]);
-
-  const handleClearCache = useCallback(() => {
-    clearLocalCredentials();
-    setCredentials([]);
-    setFromLocalCache(false);
-  }, []);
 
   useEffect(() => {
     fetchCredentials();
@@ -69,9 +65,9 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
                   ? 'No credentials'
                   : `${credentials.length} credential${credentials.length !== 1 ? 's' : ''}`}
               </p>
-              {fromLocalCache && (
+              {usingLocalFallback && (
                 <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
-                  local cache
+                  offline
                 </span>
               )}
             </div>
@@ -124,19 +120,6 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
               credentials={credentials}
               onSelectCredential={(c) => navigate('detail', { selectedCredential: c })}
             />
-            {fromLocalCache && (
-              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between">
-                <p className="text-xs text-amber-700 leading-snug max-w-[200px]">
-                  Showing locally cached credentials. Server list unavailable.
-                </p>
-                <button
-                  onClick={handleClearCache}
-                  className="text-xs font-semibold text-amber-700 underline flex-shrink-0 ml-3 min-h-[44px] flex items-center"
-                >
-                  Clear cache
-                </button>
-              </div>
-            )}
           </div>
         )}
       </main>

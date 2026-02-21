@@ -74,6 +74,7 @@ export interface VPPreviewResponse {
 }
 
 export interface VPRespondResponse {
+  status?: string;
   submitted?: boolean;
   redirectUri?: string;
   error?: string;
