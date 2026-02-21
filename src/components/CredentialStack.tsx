@@ -13,15 +13,16 @@ interface CredentialStackProps {
 
 /**
  * How many px of each older card's TOP strip remain visible above the card in front.
- * Roughly 25% of a 225px-tall card on a 390px-wide screen.
+ * 80px comfortably fits two-line titles (17px bold × 1.375 lh × 2 ≈ 47px + 20px top padding)
+ * with breathing room so titles never visually collide with the foreground card edge.
  */
-const PEEK_HEIGHT = 60;
+const PEEK_HEIGHT = 80;
 
 /** ISO/IEC 7810 ID-1 card aspect ratio */
 const ASPECT_RATIO = 1.586;
 
 /**
- * Stacking rules (matches PRD):
+ * Stacking rules:
  *
  * - Oldest credential → rendered first, positioned at TOP, lowest z-index (furthest back).
  *   Only its top PEEK_HEIGHT px strip is visible.
@@ -30,10 +31,14 @@ const ASPECT_RATIO = 1.586;
  * Every tap directly opens the tapped credential — no "bring to front" intermediate step.
  * Because older cards only expose their top strip (which no newer card covers), the browser's
  * natural hit-testing sends the click to the correct card without extra logic.
+ *
+ * Shadow: a large-blur drop-shadow creates a gradual gradient effect on the peek area of the
+ * card below (not a hard line), which immediately renders with no animation delay.
  */
 export default function CredentialStack({ credentials, onSelectCredential }: CredentialStackProps) {
   // credentials prop arrives newest-first (from localStorage); reverse so oldest renders first.
   const renderOrder = [...credentials].reverse();
+  const lastIdx = renderOrder.length - 1;
 
   return (
     <div>
@@ -46,6 +51,7 @@ export default function CredentialStack({ credentials, onSelectCredential }: Cre
         // z-index: oldest = 1, newest = renderOrder.length (highest, in front)
         const zIndex = idx + 1;
         const isFirst = idx === 0;
+        const isLast = idx === lastIdx;
 
         return (
           <div
@@ -59,8 +65,11 @@ export default function CredentialStack({ credentials, onSelectCredential }: Cre
               zIndex,
               cursor: 'pointer',
               userSelect: 'none',
-              // Depth shadow so same-coloured stacked cards are visually distinct
-              filter: 'drop-shadow(0 -4px 12px rgba(0,0,0,0.35))',
+              // Large-blur shadow: the 40px spread creates a very gradual fade on the
+              // peek area above, avoiding a hard shadow line while still giving depth.
+              filter: isLast && renderOrder.length > 1
+                ? 'drop-shadow(0 -2px 40px rgba(0,0,0,0.18))'
+                : undefined,
             }}
             onClick={() => onSelectCredential(credential)}
             role="button"

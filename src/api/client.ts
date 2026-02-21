@@ -135,7 +135,10 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
   // 2. Preview to get all candidates
   const preview = await previewPresentation(token, vpResp.invocationUrl);
 
-  // 3. Convert candidates to Credential objects (metadata only)
+  // 3. Convert candidates to Credential objects.
+  //    _availableClaims stores the "namespace:key" strings from the VP preview so that
+  //    CredentialDetailScreen can render field labels even when the full credential data
+  //    (namespaces / credentialSubject) is not available from the discovery flow alone.
   const discovered: Credential[] = [];
   for (const query of preview.queries) {
     for (const cand of query.candidates) {
@@ -150,6 +153,8 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
           ? new Date(cand.expiresAt * 1000).toISOString()
           : undefined,
         status: cand.expiresAt && nowSec > cand.expiresAt ? 'expired' : 'active',
+        // Available claim names from the server (field names only, not values)
+        _availableClaims: cand.claims.available,
       });
     }
   }

@@ -277,6 +277,24 @@ export function extractFields(credential: Credential): CredentialField[] {
     if (fields.length > 0) return fields;
   }
 
+  // Fallback: parse the available claim names stored during VP discovery.
+  // This shows which fields the credential contains even when full data isn't available.
+  // Format: "org.iso.18013.5.1:family_name"
+  const availableClaims = credential._availableClaims;
+  if (Array.isArray(availableClaims) && availableClaims.length > 0) {
+    for (const claim of availableClaims as string[]) {
+      const colonIdx = claim.indexOf(':');
+      if (colonIdx < 0) {
+        fields.push({ label: humanizeLabel(claim), value: undefined });
+      } else {
+        const namespace = claim.slice(0, colonIdx);
+        const key = claim.slice(colonIdx + 1);
+        fields.push({ label: getClaimLabel(namespace, key), value: undefined, namespace });
+      }
+    }
+    return fields;
+  }
+
   return fields;
 }
 

@@ -9,6 +9,7 @@ import {
 } from '../utils/credentialHelpers';
 import { saveLocalCredential } from '../store/localCredentials';
 import QRScanner from '../components/QRScanner';
+import PrimaryButton from '../components/PrimaryButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import type { Credential, ViewName } from '../types';
@@ -20,6 +21,54 @@ interface ReceiveScreenProps {
   onCredentialReceived: () => void;
   initialUri?: string;
 }
+
+// ── Shared scan-toggle icons (single-colour line style) ──────────────────────
+
+function IconCamera() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.7" />
+    </svg>
+  );
+}
+
+function IconPaste() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 20h9M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function IconCheckCircle() {
+  return (
+    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="12" r="10" stroke="#22c55e" strokeWidth="1.5" />
+      <path
+        d="M8.5 12l2.5 2.5 4.5-5"
+        stroke="#22c55e"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function ReceiveScreen({ navigate, onCredentialReceived, initialUri }: ReceiveScreenProps) {
   const { state, markExpired } = useAuth();
@@ -107,7 +156,7 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
       <div className="flex-1 flex flex-col items-center justify-center p-6 min-h-screen bg-[#F2F2F7]">
         <div className="text-center space-y-4">
           <LoadingSpinner size="lg" className="mx-auto" />
-          <p className="text-[#8e8e93] text-sm">Processing credential offer…</p>
+          <p className="text-[#8e8e93] text-[15px]">Processing credential offer…</p>
         </div>
       </div>
     );
@@ -119,7 +168,7 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
       <div className="flex-1 flex flex-col p-6 min-h-screen bg-[#F2F2F7]">
         <button
           onClick={() => navigate('dashboard')}
-          className="self-start text-[#8e8e93] hover:text-[#1c1c1e] text-sm flex items-center gap-1.5 min-h-[44px]"
+          className="self-start text-[#8e8e93] hover:text-[#1c1c1e] text-[15px] flex items-center gap-1.5 min-h-[44px]"
         >
           ← Back
         </button>
@@ -127,7 +176,7 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
           <ErrorMessage message={error} />
           <button
             onClick={() => { setStage('scan'); setError(''); setManualUri(''); }}
-            className="bg-white hover:bg-[#e5e5ea] text-[#1c1c1e] text-sm py-3 px-6 rounded-2xl transition-colors min-h-[44px] shadow-sm border border-black/5"
+            className="bg-white hover:bg-[#e5e5ea] text-[#1c1c1e] text-[15px] py-3 px-6 rounded-2xl transition-colors min-h-[44px] shadow-sm border border-black/5"
           >
             Try again
           </button>
@@ -142,11 +191,11 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
       <div className="flex-1 flex flex-col items-center justify-center p-6 min-h-screen bg-[#F2F2F7]">
         <div className="text-center space-y-4">
           <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto">
-            <span className="text-4xl" aria-hidden>✅</span>
+            <IconCheckCircle />
           </div>
           <div>
-            <p className="text-[#1c1c1e] font-semibold text-lg">Credential Added!</p>
-            <p className="text-[#8e8e93] text-sm mt-1">Returning to your wallet…</p>
+            <p className="text-[#1c1c1e] font-semibold text-[17px]">Credential Added!</p>
+            <p className="text-[#8e8e93] text-[15px] mt-1">Returning to your wallet…</p>
           </div>
         </div>
       </div>
@@ -190,21 +239,18 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         <div className="px-5 flex-1">
           <p className="text-[16px] font-bold text-[#1c1c1e] mb-3">Info to save</p>
 
-          {/* Credential row card */}
           <div className="bg-white rounded-2xl flex items-center px-4 py-3 shadow-sm">
             {/* Mini thumbnail */}
             <div
               className="w-[72px] h-[46px] rounded-xl flex-shrink-0 mr-4"
               style={{ backgroundColor }}
             />
-            {/* Name + description */}
             <div className="flex-1 min-w-0">
               <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{label}</p>
               {description && (
                 <p className="text-[13px] text-[#8e8e93] truncate">{description}</p>
               )}
             </div>
-            {/* Chevron */}
             <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="flex-shrink-0 ml-3">
               <path d="M1 1l6 6-6 6" stroke="#c7c7cc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -213,14 +259,9 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
 
         {/* Action buttons */}
         <div className="px-5 pt-8 pb-10 space-y-3">
-          <button
-            onClick={handleAccept}
-            disabled={processing}
-            className="w-full py-4 rounded-full text-white font-semibold text-[17px] transition-opacity disabled:opacity-60"
-            style={{ backgroundColor: '#5B4FE9' }}
-          >
-            {processing ? 'Saving…' : 'Save'}
-          </button>
+          <PrimaryButton onClick={handleAccept} loading={processing}>
+            Save
+          </PrimaryButton>
           <button
             onClick={() => navigate('dashboard')}
             className="w-full py-3 text-[15px] font-medium text-center"
@@ -247,24 +288,27 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
           </svg>
         </button>
         <div>
-          <h2 className="text-lg font-bold text-[#1c1c1e]">Scan QR Code</h2>
-          <p className="text-xs text-[#8e8e93]">Receive or present a credential</p>
+          <h2 className="text-[20px] font-bold text-[#1c1c1e]">Scan QR Code</h2>
+          <p className="text-[13px] text-[#8e8e93]">Receive or present a credential</p>
         </div>
       </header>
 
       <div className="flex-1 px-5 pb-8 space-y-4">
+        {/* Camera / Paste toggle */}
         <div className="flex bg-black/5 rounded-xl p-1">
           <button
-            className={`flex-1 py-2 text-sm rounded-lg transition-colors ${!showManual ? 'bg-white text-[#1c1c1e] font-medium shadow-sm' : 'text-[#8e8e93]'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 text-[14px] rounded-lg transition-colors ${!showManual ? 'bg-white text-[#1c1c1e] font-medium shadow-sm' : 'text-[#8e8e93]'}`}
             onClick={() => setShowManual(false)}
           >
-            📷 Camera
+            <IconCamera />
+            Camera
           </button>
           <button
-            className={`flex-1 py-2 text-sm rounded-lg transition-colors ${showManual ? 'bg-white text-[#1c1c1e] font-medium shadow-sm' : 'text-[#8e8e93]'}`}
+            className={`flex-1 flex items-center justify-center gap-2 py-2 text-[14px] rounded-lg transition-colors ${showManual ? 'bg-white text-[#1c1c1e] font-medium shadow-sm' : 'text-[#8e8e93]'}`}
             onClick={() => setShowManual(true)}
           >
-            ✏️ Paste URI
+            <IconPaste />
+            Paste URI
           </button>
         </div>
 
@@ -278,23 +322,19 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
               onChange={(e) => { setManualUri(e.target.value); setError(''); }}
               placeholder="openid-credential-offer://... or openid4vp://..."
               rows={5}
-              className="w-full bg-white border border-black/8 rounded-2xl px-4 py-3 text-[#1c1c1e] placeholder-[#aeaeb2] text-sm font-mono focus:outline-none focus:border-blue-500 resize-none shadow-sm"
+              className="w-full bg-white border border-black/8 rounded-2xl px-4 py-3 text-[#1c1c1e] placeholder-[#aeaeb2] text-[14px] font-mono focus:outline-none focus:border-[#5B4FE9] resize-none shadow-sm"
               aria-label="Paste credential offer or presentation URI"
             />
             {error && <ErrorMessage message={error} />}
-            <button
-              type="submit"
-              disabled={!manualUri.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-semibold py-3.5 rounded-2xl text-sm transition-colors min-h-[44px]"
-            >
+            <PrimaryButton type="submit" disabled={!manualUri.trim()}>
               Process URI
-            </button>
+            </PrimaryButton>
           </form>
         ) : (
           <div className="space-y-3">
             <QRScanner onScan={(r) => processOfferUri(r)} />
             {error && <ErrorMessage message={error} />}
-            <p className="text-center text-xs text-[#aeaeb2]">
+            <p className="text-center text-[13px] text-[#aeaeb2]">
               Supports credential offers and presentation requests
             </p>
           </div>

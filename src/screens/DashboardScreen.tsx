@@ -80,7 +80,7 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
             <ErrorMessage message={error} />
             <button
               onClick={fetchCredentials}
-              className="mt-4 w-full bg-white hover:bg-[#e5e5ea] text-[#1c1c1e] text-sm py-3 rounded-2xl transition-colors shadow-sm border border-black/5"
+              className="mt-4 w-full bg-white hover:bg-[#e5e5ea] text-[#1c1c1e] text-[15px] py-3 rounded-2xl transition-colors shadow-sm border border-black/5"
             >
               Try again
             </button>
@@ -90,12 +90,12 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
           /* Empty state — matches No_credential.PNG */
           <div className="px-4 pt-2">
             <div className="bg-white rounded-3xl p-5 shadow-sm">
+              {/* Passport / document line icon */}
               <div className="w-11 h-11 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <circle cx="12" cy="9.5" r="4.5" stroke="#4f46e5" strokeWidth="1.5" />
-                  <path d="M12 5 C10.3 7 10.3 12 12 14 C13.7 12 13.7 7 12 5Z" fill="#4f46e5" opacity="0.5" />
-                  <path d="M7.5 9.5h9" stroke="#4f46e5" strokeWidth="1.3" strokeLinecap="round" />
-                  <path d="M9 17h6v4l-3-1.5L9 21v-4z" fill="#4f46e5" opacity="0.8" />
+                  <rect x="4" y="3" width="16" height="18" rx="2" stroke="#5B4FE9" strokeWidth="1.6" />
+                  <circle cx="12" cy="10" r="3" stroke="#5B4FE9" strokeWidth="1.4" />
+                  <path d="M7 17c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="#5B4FE9" strokeWidth="1.4" strokeLinecap="round" />
                 </svg>
               </div>
               <h2 className="text-[17px] font-bold text-[#1c1c1e] mb-1.5">
@@ -106,7 +106,8 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
               </p>
               <button
                 onClick={() => navigate('receive')}
-                className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-[15px] font-semibold px-6 py-3 rounded-full transition-colors"
+                className="text-white text-[15px] font-semibold px-6 py-3 rounded-full transition-opacity active:opacity-80"
+                style={{ backgroundColor: '#5B4FE9' }}
               >
                 Upload travel document
               </button>

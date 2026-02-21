@@ -19,26 +19,32 @@ function SplashScreen({ error, onRetry }: { error?: string; onRetry: () => void 
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-6 min-h-screen bg-[#F2F2F7]">
       <div className="text-center space-y-5">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-600 to-purple-600 shadow-xl shadow-blue-500/20">
-          <span className="text-4xl" aria-hidden>🪪</span>
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl shadow-xl" style={{ background: 'linear-gradient(135deg, #5B4FE9 0%, #7c3aed 100%)' }}>
+          {/* Wallet / credential card line icon */}
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <rect x="2" y="5" width="20" height="14" rx="2.5" stroke="white" strokeWidth="1.6" />
+            <path d="M2 10h20" stroke="white" strokeWidth="1.4" />
+            <rect x="14" y="13" width="4" height="2.5" rx="1" fill="white" />
+          </svg>
         </div>
         <div>
-          <h1 className="text-xl font-bold text-[#1c1c1e]">Neoke wallet</h1>
-          <p className="text-sm text-[#8e8e93] mt-1">Self-Sovereign Identity</p>
+          <h1 className="text-[22px] font-bold text-[#1c1c1e]">Neoke wallet</h1>
+          <p className="text-[15px] text-[#8e8e93] mt-1">Self-Sovereign Identity</p>
         </div>
         {!error ? (
-          <div className="flex items-center gap-2 text-[#8e8e93] text-sm">
+          <div className="flex items-center gap-2 text-[#8e8e93] text-[15px]">
             <LoadingSpinner size="sm" />
             <span>Connecting…</span>
           </div>
         ) : (
           <div className="space-y-3 max-w-xs">
-            <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
+            <p className="text-red-600 text-[14px] bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
               {error}
             </p>
             <button
               onClick={onRetry}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-2xl text-sm transition-colors min-h-[44px]"
+              className="w-full text-white font-semibold py-4 rounded-full text-[17px] transition-opacity min-h-[44px]"
+              style={{ backgroundColor: '#5B4FE9' }}
             >
               Retry
             </button>

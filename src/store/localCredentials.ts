@@ -46,13 +46,17 @@ export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential
     );
 
     if (localMatch) {
-      // Server is authoritative for metadata; local provides field-level data
+      // Server is authoritative for metadata; local provides field-level data.
+      // _availableClaims from the server is always the freshest field manifest.
       return {
         ...localMatch,
         id: serverCred.id,
         issuer: serverCred.issuer || localMatch.issuer,
         expirationDate: serverCred.expirationDate ?? localMatch.expirationDate,
         status: serverCred.status ?? localMatch.status,
+        _availableClaims:
+          (serverCred._availableClaims as string[] | undefined) ??
+          (localMatch._availableClaims as string[] | undefined),
       };
     }
     return serverCred;
