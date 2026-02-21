@@ -52,12 +52,9 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
   return (
     <div className="flex-1 flex flex-col bg-[#F2F2F7] min-h-screen">
 
-      {/* Header — title left, ⋮ menu top-right, same row with items-start */}
-      <header className="px-5 pt-12 pb-4 flex items-start justify-between">
-        <h1 className="text-[28px] font-bold text-[#1c1c1e] leading-tight">
-          Neoke wallet
-        </h1>
-        <div className="flex items-center gap-2 mt-1">
+      {/* Header: ⋮ alone top-right first, then "Neoke wallet" title on the line below */}
+      <header className="px-5 pt-12">
+        <div className="flex justify-end items-center gap-2 mb-1">
           {usingLocalFallback && (
             <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
               offline
@@ -76,6 +73,9 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
             </svg>
           </button>
         </div>
+        <h1 className="text-[28px] font-bold text-[#1c1c1e] leading-tight pb-4">
+          Neoke wallet
+        </h1>
       </header>
 
       {/* Content — no overflow-y-auto here; let viewport scroll so no scrollbar width is stolen from card container */}
