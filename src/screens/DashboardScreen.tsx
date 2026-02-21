@@ -29,13 +29,10 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
     setUsingLocalFallback(false);
 
     try {
-      // Discover credentials from the server via VP preview (authoritative)
       const serverCreds = await discoverWalletCredentials(token);
-      // Merge with local data for richer field display; syncs localStorage
       const merged = mergeWithLocalCredentials(serverCreds);
       setCredentials(merged);
     } catch {
-      // Network failure or server down — fall back to whatever is in localStorage
       const local = getLocalCredentials();
       setCredentials(local);
       if (local.length > 0) {
@@ -55,7 +52,7 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
   return (
     <div className="flex-1 flex flex-col bg-[#F2F2F7] min-h-screen">
       {/* Header */}
-      <header className="flex items-center justify-between px-5 pt-12 pb-4">
+      <header className="flex items-center justify-between px-4 pt-12 pb-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1c1c1e]">Neoke wallet</h1>
           {!loading && !error && (
@@ -84,7 +81,7 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto px-5 pb-28">
+      <main className="flex-1 overflow-y-auto px-4 pb-28">
         {loading ? (
           <div className="flex items-center justify-center pt-20">
             <div className="text-center space-y-3">
@@ -103,15 +100,32 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
             </button>
           </div>
         ) : credentials.length === 0 ? (
-          <div className="flex flex-col items-center justify-center pt-20 text-center space-y-4">
-            <div className="w-20 h-20 rounded-3xl bg-white shadow-sm flex items-center justify-center">
-              <span className="text-4xl" aria-hidden>🪪</span>
-            </div>
-            <div>
-              <p className="text-[#1c1c1e] font-semibold text-base">No credentials yet</p>
-              <p className="text-[#8e8e93] text-sm mt-1 max-w-xs">
-                Tap "Scan QR Code" below to receive your first credential.
+          /* Empty state — matches No_credential.PNG */
+          <div className="flex items-center justify-center pt-12">
+            <div className="bg-white rounded-3xl p-8 mx-2 flex flex-col items-center text-center shadow-sm">
+              {/* Document icon in a purple rounded square */}
+              <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center mb-5">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden>
+                  <rect x="7" y="4" width="18" height="24" rx="3" fill="white" opacity="0.9" />
+                  <rect x="11" y="10" width="10" height="1.5" rx="0.75" fill="#4f46e5" />
+                  <rect x="11" y="14" width="10" height="1.5" rx="0.75" fill="#4f46e5" />
+                  <rect x="11" y="18" width="6" height="1.5" rx="0.75" fill="#4f46e5" />
+                </svg>
+              </div>
+
+              <h2 className="text-[18px] font-bold text-[#1c1c1e] mb-2">
+                No travel document… yet!
+              </h2>
+              <p className="text-sm text-[#8e8e93] max-w-[220px] mb-6 leading-relaxed">
+                Scan a QR code to receive your first verifiable credential.
               </p>
+
+              <button
+                onClick={() => navigate('receive')}
+                className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-[15px] font-semibold px-7 py-3 rounded-full transition-colors"
+              >
+                Scan QR Code
+              </button>
             </div>
           </div>
         ) : (

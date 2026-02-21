@@ -11,8 +11,11 @@ const ASPECT_RATIO = 1.586;
 
 export default function CredentialStack({ credentials, onSelectCredential }: CredentialStackProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(335);
-  const [order, setOrder] = useState<string[]>(() => credentials.map((c) => c.id));
+  const [containerWidth, setContainerWidth] = useState(343);
+  // Newest credential first: reverse the initial order so last-added appears on top
+  const [order, setOrder] = useState<string[]>(() =>
+    [...credentials.map((c) => c.id)].reverse()
+  );
 
   // Measure actual container width for accurate card height
   useEffect(() => {
@@ -26,7 +29,7 @@ export default function CredentialStack({ credentials, onSelectCredential }: Cre
     return () => ro.disconnect();
   }, []);
 
-  // Sync order when credentials list changes
+  // Sync order when credentials list changes — new credentials go to the front
   const orderedIds = order.filter((id) => credentials.some((c) => c.id === id));
   const newIds = credentials.map((c) => c.id).filter((id) => !order.includes(id));
   const finalOrder = [...newIds, ...orderedIds];
@@ -43,8 +46,10 @@ export default function CredentialStack({ credentials, onSelectCredential }: Cre
 
   const handleCardClick = (credential: Credential, idx: number) => {
     if (idx === 0) {
+      // Top card: navigate directly to detail
       onSelectCredential(credential);
     } else {
+      // Non-top card: bring to front on first tap
       setOrder([credential.id, ...finalOrder.filter((id) => id !== credential.id)]);
     }
   };
@@ -58,7 +63,6 @@ export default function CredentialStack({ credentials, onSelectCredential }: Cre
         <CredentialCard
           key={credential.id}
           credential={credential}
-          isTop={idx === 0}
           stackIndex={idx}
           onClick={() => handleCardClick(credential, idx)}
         />

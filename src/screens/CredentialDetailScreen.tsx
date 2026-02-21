@@ -19,17 +19,48 @@ interface CredentialDetailScreenProps {
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}/;
 
+// Inline Neoke logo for the detail card (same as CredentialCard)
+function NeokeLogoMark({ color = '#ffffff' }: { color?: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <svg width="22" height="16" viewBox="0 0 22 16" fill="none" aria-hidden>
+        <path
+          d="M2 14 L2 2 L11 14 L11 2"
+          stroke={color}
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M13 8 C13 4.5 15.5 2 19 2 C19 5.5 16.5 8 13 8 Z"
+          fill={color}
+          opacity="0.9"
+        />
+        <path
+          d="M13 8 C13 11.5 15.5 14 19 14 C19 10.5 16.5 8 13 8 Z"
+          fill={color}
+          opacity="0.6"
+        />
+      </svg>
+      <span
+        className="text-[13px] font-semibold tracking-tight"
+        style={{ color, opacity: 0.95 }}
+      >
+        neoke
+      </span>
+    </div>
+  );
+}
+
 export default function CredentialDetailScreen({ credential, onBack }: CredentialDetailScreenProps) {
   const gradient = getCardGradient(credential);
   const label = credential.displayMetadata?.label ?? getCredentialLabel(credential);
-  const description = getCredentialDescription(credential);
+  const description =
+    credential.displayMetadata?.description ?? getCredentialDescription(credential);
   const status = inferStatus(credential);
   const bgColor = credential.displayMetadata?.backgroundColor ?? gradient.from;
   const textColor = credential.displayMetadata?.textColor ?? '#ffffff';
-
-  const docType = credential.docType ?? '';
-  const isMdoc = docType.startsWith('org.iso.') || docType.toLowerCase().includes('mdoc');
-  const badgeText = isMdoc ? 'mDOC' : null;
+  const logoUrl = credential.displayMetadata?.logoUrl;
 
   const namespaceGroups = getNamespaceGroups(credential);
   const genericFields = namespaceGroups.length === 0 ? extractFields(credential) : [];
@@ -47,8 +78,8 @@ export default function CredentialDetailScreen({ credential, onBack }: Credentia
       transition={{ type: 'spring', damping: 28, stiffness: 280 }}
       className="fixed inset-0 bg-[#F2F2F7] z-40 flex flex-col overflow-y-auto"
     >
-      {/* Navigation header */}
-      <div className="flex items-center justify-between px-5 pt-12 pb-4 flex-shrink-0">
+      {/* Navigation row: back left, delete right */}
+      <div className="flex items-center justify-between px-4 pt-12 pb-2 flex-shrink-0">
         <button
           onClick={onBack}
           className="w-10 h-10 rounded-full bg-black/6 hover:bg-black/10 flex items-center justify-center transition-colors"
@@ -64,7 +95,6 @@ export default function CredentialDetailScreen({ credential, onBack }: Credentia
             />
           </svg>
         </button>
-        <h2 className="text-base font-semibold text-[#1c1c1e] truncate max-w-[55%]">{label}</h2>
         <button
           onClick={handleDelete}
           className="w-10 h-10 rounded-full bg-black/6 hover:bg-red-50 flex items-center justify-center transition-colors group"
@@ -83,109 +113,82 @@ export default function CredentialDetailScreen({ credential, onBack }: Credentia
         </button>
       </div>
 
-      {/* Card */}
-      <div className="px-5 flex-shrink-0">
+      {/* Page title — large h1 below the nav row */}
+      <h1 className="text-[28px] font-bold text-[#1c1c1e] px-4 pb-4 flex-shrink-0 leading-tight">
+        {label}
+      </h1>
+
+      {/* Card — full width with side padding, same design as CredentialCard */}
+      <div className="px-4 flex-shrink-0">
         <div
-          className="rounded-[20px] overflow-hidden p-5 flex flex-col justify-between"
+          className="rounded-[20px] overflow-hidden p-5 flex flex-col"
           style={{ background: bgColor, color: textColor, aspectRatio: '1.586' }}
         >
+          {/* Top row: label left, logo right */}
           <div className="flex justify-between items-start">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center"
-              style={{ background: 'rgba(255,255,255,0.2)' }}
-            >
-              <span style={{ fontSize: 18 }}>🪪</span>
-            </div>
-            <div className="flex items-center gap-1" style={{ opacity: 0.85 }}>
-              <div className="w-3.5 h-3.5 rounded-full" style={{ background: 'rgba(255,255,255,0.9)' }} />
-              <div className="w-3.5 h-3.5 rounded-full -ml-2" style={{ background: 'rgba(255,255,255,0.5)' }} />
-              <span className="text-[11px] font-bold tracking-widest ml-1.5" style={{ color: textColor }}>
-                NEOKE
-              </span>
-            </div>
-          </div>
-          <div>
-            <p className="text-xl font-bold leading-tight" style={{ color: textColor }}>{label}</p>
-            {description && (
-              <p className="text-sm mt-1 leading-snug" style={{ color: textColor, opacity: 0.7 }}>
-                {description}
-              </p>
-            )}
-          </div>
-          <div className="flex justify-between items-end">
-            <div className="text-xs" style={{ color: textColor, opacity: 0.55 }}>
-              {credential.expirationDate && <span>Expires {formatDate(credential.expirationDate)}</span>}
-            </div>
-            {badgeText && (
-              <div className="px-2.5 py-0.5 rounded-md" style={{ background: 'rgba(255,255,255,0.2)' }}>
-                <span className="text-xs font-bold tracking-wide" style={{ color: textColor }}>
-                  {badgeText}
-                </span>
+            <p className="text-[17px] font-bold leading-snug flex-1 mr-3" style={{ color: textColor }}>
+              {label}
+            </p>
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt="Issuer logo"
+                className="h-7 object-contain flex-shrink-0"
+                style={{ maxWidth: '40%' }}
+              />
+            ) : (
+              <div className="flex-shrink-0">
+                <NeokeLogoMark color={textColor} />
               </div>
             )}
           </div>
+
+          <div className="flex-1" />
+
+          {/* Bottom: description */}
+          {description && (
+            <p className="text-[13px] leading-snug" style={{ color: textColor, opacity: 0.85 }}>
+              {description}
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Details */}
-      <div className="flex-1 px-5 pt-4 pb-8 space-y-3">
-        {/* Status + metadata */}
-        <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-          <div className="flex items-center justify-between px-4 py-3.5 border-b border-black/5">
-            <span className="text-sm text-[#8e8e93]">Status</span>
-            <StatusBadge status={status} />
-          </div>
-          {credential.issuanceDate && (
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-black/5">
-              <span className="text-sm text-[#8e8e93]">Issued</span>
-              <span className="text-sm font-medium text-[#1c1c1e]">{formatDate(credential.issuanceDate)}</span>
-            </div>
-          )}
-          {credential.expirationDate && (
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-black/5">
-              <span className="text-sm text-[#8e8e93]">Expires</span>
-              <span className="text-sm font-medium text-[#1c1c1e]">{formatDate(credential.expirationDate)}</span>
-            </div>
-          )}
-          <div className="px-4 py-3.5">
-            <span className="text-sm text-[#8e8e93] block mb-1">Issuer</span>
-            <span className="text-xs font-mono text-[#1c1c1e] break-all">{credential.issuer}</span>
-          </div>
-        </div>
+      {/* Status badge row */}
+      <div className="flex items-center gap-2 px-4 pt-5 pb-1 flex-shrink-0">
+        <StatusBadge status={status} />
+        {credential.expirationDate && (
+          <span className="text-xs text-[#8e8e93]">
+            Expires {formatDate(credential.expirationDate)}
+          </span>
+        )}
+      </div>
 
-        {/* Fields */}
+      {/* Fields — plain label/value pairs matching Open_credential.PNG */}
+      <div className="flex-1 px-4 pt-3 pb-10">
         {(namespaceGroups.length > 0 || genericFields.length > 0) && (
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-            <div className="px-4 py-2.5 border-b border-black/5">
-              <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide">Fields</p>
-            </div>
+          <div className="space-y-0">
             {namespaceGroups.length > 0
               ? namespaceGroups.flatMap((group, gi) =>
                   group.fields.map((field, fi) => (
-                    <FieldRow
+                    <PlainFieldRow
                       key={`${gi}-${fi}`}
                       label={field.label}
                       value={field.value}
-                      isLast={gi === namespaceGroups.length - 1 && fi === group.fields.length - 1}
                     />
                   ))
                 )
               : genericFields.map((field, i) => (
-                  <FieldRow
-                    key={i}
-                    label={field.label}
-                    value={field.value}
-                    isLast={i === genericFields.length - 1}
-                  />
+                  <PlainFieldRow key={i} label={field.label} value={field.value} />
                 ))}
           </div>
         )}
 
-        {/* Credential ID */}
-        {credential.id && (
-          <div className="bg-white rounded-2xl px-4 py-3 shadow-sm">
-            <p className="text-xs text-[#8e8e93] mb-1">Credential ID</p>
-            <p className="text-xs font-mono text-[#aeaeb2] break-all">{credential.id}</p>
+        {/* Issuer */}
+        {credential.issuer && (
+          <div className="mt-2">
+            <p className="text-xs text-[#8e8e93] mb-0.5">Issuer</p>
+            <p className="text-[13px] font-mono text-[#3c3c3e] break-all">{credential.issuer}</p>
           </div>
         )}
       </div>
@@ -193,13 +196,12 @@ export default function CredentialDetailScreen({ credential, onBack }: Credentia
   );
 }
 
-interface FieldRowProps {
+interface PlainFieldRowProps {
   label: string;
   value: unknown;
-  isLast: boolean;
 }
 
-function FieldRow({ label, value, isLast }: FieldRowProps) {
+function PlainFieldRow({ label, value }: PlainFieldRowProps) {
   const lowerLabel = label.toLowerCase();
   const isImage =
     (lowerLabel.includes('photo') || lowerLabel.includes('portrait') || lowerLabel.includes('picture')) &&
@@ -212,8 +214,8 @@ function FieldRow({ label, value, isLast }: FieldRowProps) {
         ? value
         : `data:image/jpeg;base64,${value}`;
     return (
-      <div className={`px-4 py-3 ${!isLast ? 'border-b border-black/5' : ''}`}>
-        <p className="text-sm text-[#8e8e93] mb-2">{label}</p>
+      <div className="py-3">
+        <p className="text-xs text-[#8e8e93] mb-1.5">{label}</p>
         <img src={src} alt={label} className="w-24 h-32 object-cover rounded-xl" loading="lazy" />
       </div>
     );
@@ -233,9 +235,9 @@ function FieldRow({ label, value, isLast }: FieldRowProps) {
   }
 
   return (
-    <div className={`flex items-start justify-between gap-4 px-4 py-3 ${!isLast ? 'border-b border-black/5' : ''}`}>
-      <span className="text-sm text-[#8e8e93] flex-shrink-0 max-w-[45%]">{label}</span>
-      <span className="text-sm font-medium text-[#1c1c1e] text-right break-all flex-1">{displayValue}</span>
+    <div className="py-3 border-b border-black/5 last:border-0">
+      <p className="text-xs text-[#8e8e93] mb-0.5">{label}</p>
+      <p className="text-[17px] font-medium text-[#1c1c1e]">{displayValue}</p>
     </div>
   );
 }

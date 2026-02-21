@@ -65,13 +65,12 @@ export default function AccountScreen({ navigate }: AccountScreenProps) {
 
         {/* App version */}
         <div className="text-center pt-4 pb-4">
-          <div className="inline-flex items-center gap-2 mb-2">
+          <div className="inline-flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
               <span className="text-sm">🪪</span>
             </div>
             <span className="text-sm font-bold text-[#1c1c1e]">Neoke Cloud Wallet</span>
           </div>
-          <p className="text-xs text-[#aeaeb2]">Self-Sovereign Identity · v1.0.0</p>
         </div>
       </main>
     </div>
