@@ -188,7 +188,7 @@ function AppInner() {
   const showTabBar = currentView === 'dashboard' || currentView === 'account';
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#F2F2F7] max-w-lg mx-auto">
+    <div className="flex flex-col min-h-screen bg-[#F2F2F7] w-full max-w-lg mx-auto">
       {state.sessionExpired && <ReAuthModal />}
 
       <AnimatePresence mode="wait">
