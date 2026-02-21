@@ -76,8 +76,10 @@ export default function CredentialDetailScreen({ credential, onBack }: Credentia
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-      className="fixed inset-0 bg-[#F2F2F7] z-40 flex flex-col overflow-y-auto"
+      className="fixed inset-0 bg-[#F2F2F7] z-40 flex justify-center overflow-y-auto"
     >
+    {/* Inner column matches the same max-w-lg as the rest of the app */}
+    <div className="w-full max-w-lg flex flex-col">
       {/* Navigation row: back left, delete right */}
       <div className="flex items-center justify-between px-4 pt-12 pb-2 flex-shrink-0">
         <button
@@ -192,6 +194,7 @@ export default function CredentialDetailScreen({ credential, onBack }: Credentia
           </div>
         )}
       </div>
+    </div>
     </motion.div>
   );
 }
