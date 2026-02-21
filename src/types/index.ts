@@ -40,10 +40,25 @@ export interface Credential {
 // ============================================================
 // OpenID4VP — Verifiable Presentations
 // ============================================================
+export interface VPCandidateClaims {
+  requested: string[];
+  available: string[];
+  disclosed: string[];
+}
+
+export interface VPCandidate {
+  index: number;
+  format: string;
+  type: string[];
+  issuer: string;
+  expiresAt?: number;
+  claims: VPCandidateClaims;
+}
+
 export interface VPQuery {
-  docType?: string;
-  type?: string;
-  requestedFields: string[];
+  queryId: string;
+  required: boolean;
+  candidates: VPCandidate[];
 }
 
 export interface VPPreviewResponse {
@@ -53,12 +68,13 @@ export interface VPPreviewResponse {
     purpose?: string;
   };
   queries: VPQuery[];
-  matchedCredentials: Credential[];
-  transactionData?: string;
+  responseType?: string;
+  responseMode?: string;
+  nonce?: string;
 }
 
 export interface VPRespondResponse {
-  status: string;
+  submitted?: boolean;
   redirectUri?: string;
   error?: string;
 }

@@ -2,13 +2,16 @@ import { useState, useCallback, useEffect } from 'react';
 import { previewPresentation, respondPresentation } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { detectUriType } from '../utils/uriRouter';
-import { getCredentialLabel, getIssuerDisplay, getCardGradient } from '../utils/credentialHelpers';
+import {
+  parseDisclosedClaim,
+  getCandidateLabel,
+  getCandidateGradient,
+} from '../utils/credentialHelpers';
 import QRScanner from '../components/QRScanner';
 import ConsentLayout from '../components/ConsentLayout';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
-import StatusBadge from '../components/StatusBadge';
-import type { Credential, VPPreviewResponse, ViewName } from '../types';
+import type { Credential, VPPreviewResponse, VPCandidate, ViewName } from '../types';
 
 type Stage = 'scan' | 'loading' | 'consent' | 'presenting' | 'success' | 'error';
 
@@ -24,6 +27,8 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
   const [showManual, setShowManual] = useState(!!initialUri);
   const [currentRequestUri, setCurrentRequestUri] = useState(initialUri ?? '');
   const [preview, setPreview] = useState<VPPreviewResponse | null>(null);
+  // selections: { [queryId]: candidateIndex }
+  const [selections, setSelections] = useState<Record<string, number>>({});
   const [error, setError] = useState('');
   const [successResult, setSuccessResult] = useState<{ redirectUri?: string } | null>(null);
 
@@ -48,13 +53,22 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
 
     try {
       const data = await previewPresentation(state.token, trimmed);
-      if (!data.matchedCredentials || data.matchedCredentials.length === 0) {
+
+      const hasAnyCandidate = data.queries?.some((q) => q.candidates?.length > 0);
+      if (!data.queries || data.queries.length === 0 || !hasAnyCandidate) {
         setError(
           "No matching credential found. The verifier is requesting a credential type that isn't in your wallet yet. Try receiving the required credential first."
         );
         setStage('error');
         return;
       }
+
+      // Initialise selections to the first candidate of each query
+      const initial: Record<string, number> = {};
+      for (const q of data.queries) {
+        if (q.candidates.length > 0) initial[q.queryId] = q.candidates[0].index;
+      }
+      setSelections(initial);
       setPreview(data);
       setStage('consent');
     } catch (err) {
@@ -80,7 +94,7 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
     if (!state.token || !currentRequestUri) return;
     setStage('presenting');
     try {
-      const result = await respondPresentation(state.token, currentRequestUri);
+      const result = await respondPresentation(state.token, currentRequestUri, selections);
       setSuccessResult({ redirectUri: result.redirectUri });
       setStage('success');
     } catch (err) {
@@ -166,10 +180,6 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
   // ── Consent ──
   if (stage === 'consent' && preview) {
     const verifierName = preview.verifier.name ?? preview.verifier.clientId;
-    const allRequestedFields = preview.queries.flatMap((q) => q.requestedFields);
-    const matchedCred = preview.matchedCredentials[0];
-    const cardColor = matchedCred?.displayMetadata?.backgroundColor ??
-      (matchedCred ? getCardGradient(matchedCred).from : '#1d4ed8');
 
     return (
       <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
@@ -208,48 +218,98 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
               </div>
             )}
 
-            {/* Transaction data */}
-            {preview.transactionData && (
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-1">
-                <p className="text-xs text-amber-600 font-semibold uppercase tracking-wide">Consent Required</p>
-                <p className="text-sm text-[#1c1c1e]">{preview.transactionData}</p>
-              </div>
-            )}
+            {/* Queries */}
+            {preview.queries.map((query) => {
+              const selectedIdx = selections[query.queryId] ?? query.candidates[0]?.index ?? 0;
+              const selectedCandidate: VPCandidate | undefined =
+                query.candidates.find((c) => c.index === selectedIdx) ?? query.candidates[0];
 
-            {/* Requested fields */}
-            {allRequestedFields.length > 0 && (
-              <div className="bg-[#f2f2f7] rounded-2xl p-4">
-                <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide mb-3">Requesting</p>
-                <div className="space-y-2">
-                  {allRequestedFields.map((field, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm text-[#1c1c1e]">
-                      <span className="text-blue-500 flex-shrink-0" aria-hidden>☑</span>
-                      <span>{field.replace(/_/g, ' ')}</span>
+              return (
+                <div key={query.queryId} className="space-y-2">
+                  {/* Multi-candidate picker */}
+                  {query.candidates.length > 1 ? (
+                    <div>
+                      <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide mb-2">
+                        Choose credential{!query.required && ' (optional)'}
+                      </p>
+                      <div className="space-y-2">
+                        {query.candidates.map((cand) => {
+                          const isSelected = selectedIdx === cand.index;
+                          const gradient = getCandidateGradient(cand.type);
+                          const label = getCandidateLabel(cand.type);
+                          return (
+                            <button
+                              key={cand.index}
+                              onClick={() => setSelections((s) => ({ ...s, [query.queryId]: cand.index }))}
+                              className={`w-full rounded-2xl p-3 flex items-center gap-3 border-2 transition-all ${
+                                isSelected ? 'border-blue-500 shadow-md' : 'border-transparent opacity-70'
+                              }`}
+                              style={{ background: gradient.from }}
+                            >
+                              <div
+                                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                                style={{ background: 'rgba(255,255,255,0.2)' }}
+                              >
+                                <span className="text-lg" aria-hidden>🪪</span>
+                              </div>
+                              <div className="min-w-0 text-left flex-1">
+                                <p className="text-sm font-semibold text-white">{label}</p>
+                                <p className="text-xs text-white/70 truncate">{cand.issuer}</p>
+                              </div>
+                              {isSelected && (
+                                <div className="w-5 h-5 rounded-full bg-white flex items-center justify-center flex-shrink-0">
+                                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                    <path d="M2 5l2.5 2.5L8 3" stroke="#2563eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                  ) : query.candidates.length === 1 ? (
+                    <div className="space-y-1">
+                      <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide">From your wallet</p>
+                      <div
+                        className="rounded-2xl p-4 flex items-center gap-3"
+                        style={{ background: getCandidateGradient(query.candidates[0].type).from }}
+                      >
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: 'rgba(255,255,255,0.2)' }}
+                        >
+                          <span className="text-xl" aria-hidden>🪪</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white">
+                            {getCandidateLabel(query.candidates[0].type)}
+                          </p>
+                          <p className="text-xs text-white/70 truncate">{query.candidates[0].issuer}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
 
-            {/* Matched credential mini-card */}
-            {matchedCred && (
-              <div className="space-y-2">
-                <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide">From your wallet</p>
-                <div
-                  className="rounded-2xl p-4 flex items-center gap-3"
-                  style={{ background: cardColor }}
-                >
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.2)' }}>
-                    <span className="text-xl" aria-hidden>🪪</span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{getCredentialLabel(matchedCred)}</p>
-                    <p className="text-xs text-white/70">{getIssuerDisplay(matchedCred)}</p>
-                  </div>
-                  <StatusBadge status="active" className="ml-auto flex-shrink-0" />
+                  {/* Fields being disclosed for the selected candidate */}
+                  {selectedCandidate && selectedCandidate.claims.disclosed.length > 0 && (
+                    <div className="bg-[#f2f2f7] rounded-2xl p-4">
+                      <p className="text-xs text-[#8e8e93] font-semibold uppercase tracking-wide mb-3">
+                        Fields to share
+                      </p>
+                      <div className="space-y-2">
+                        {selectedCandidate.claims.disclosed.map((claim, i) => (
+                          <div key={i} className="flex items-center gap-2 text-sm text-[#1c1c1e]">
+                            <span className="text-blue-500 flex-shrink-0" aria-hidden>☑</span>
+                            <span>{parseDisclosedClaim(claim)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })}
 
             <p className="text-xs text-[#aeaeb2] text-center leading-relaxed px-2">
               Only the requested fields will be shared. This action cannot be undone.

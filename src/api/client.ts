@@ -168,11 +168,15 @@ export async function previewPresentation(
 
 export async function respondPresentation(
   token: string,
-  requestUri: string
+  requestUri: string,
+  selections?: Record<string, number>
 ): Promise<VPRespondResponse> {
   return request<VPRespondResponse>('/:/auth/siop/respond', {
     method: 'POST',
     token,
-    body: JSON.stringify({ request: requestUri }),
+    body: JSON.stringify({
+      request: requestUri,
+      ...(selections ? { selections } : {}),
+    }),
   });
 }

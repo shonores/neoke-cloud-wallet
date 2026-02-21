@@ -219,6 +219,40 @@ export function formatDate(dateStr: string): string {
 }
 
 // ============================================================
+// VP candidate helpers
+// ============================================================
+
+/** Parse "namespace:key" claim string into a human label. */
+export function parseDisclosedClaim(claim: string): string {
+  const colonIdx = claim.indexOf(':');
+  if (colonIdx < 0) return humanizeLabel(claim);
+  const namespace = claim.slice(0, colonIdx);
+  const key = claim.slice(colonIdx + 1);
+  return getClaimLabel(namespace, key);
+}
+
+/** Get a readable label for a VP candidate type array. */
+export function getCandidateLabel(types: string[]): string {
+  for (const t of types) {
+    if (DOC_TYPE_DESCRIPTIONS[t]) return DOC_TYPE_DESCRIPTIONS[t];
+  }
+  const lastType = types[types.length - 1] ?? '';
+  const parts = lastType.split('.');
+  const meaningful = [...parts].reverse().find((p) => /[a-zA-Z]{2,}/.test(p));
+  return meaningful ? humanizeLabel(meaningful) : lastType;
+}
+
+/** Deterministic gradient color for a VP candidate based on its type. */
+export function getCandidateGradient(types: string[]): { from: string; to: string } {
+  const str = types[0] ?? 'default';
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return CARD_GRADIENTS[Math.abs(hash) % CARD_GRADIENTS.length];
+}
+
+// ============================================================
 // Namespace grouping for mDoc
 // ============================================================
 export function getNamespaceGroups(credential: Credential): Array<{
