@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 import { receiveCredential, fetchKeys } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { detectUriType } from '../utils/uriRouter';
@@ -78,6 +79,8 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
   const [receivedCredential, setReceivedCredential] = useState<Credential | null>(null);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const captureFileRef = useRef<HTMLInputElement>(null);
 
   const processOfferUri = useCallback(async (uri: string) => {
     if (!state.token) return;
@@ -141,6 +144,24 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
     if (initialUri) processOfferUri(initialUri);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── "Take Photo" — capture a single frame and decode QR from it ──
+  const handleFileCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    setIsCapturing(true);
+    try {
+      const scanner = new Html5Qrcode('qr-capture-receive');
+      const result = await scanner.scanFile(file, /* showImage */ false);
+      processOfferUri(result);
+    } catch {
+      setError('No QR code found in the photo. Try again with a clearer image.');
+      setTimeout(() => setError(''), 3000);
+    } finally {
+      setIsCapturing(false);
+    }
+  };
 
   const handleAccept = async () => {
     setProcessing(true);
@@ -211,12 +232,12 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
     return (
       <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
         {/* iOS-style drag handle */}
-        <div className="flex justify-center pt-3 pb-1">
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
           <div className="w-9 h-1 rounded-full bg-[#c7c7cc]" />
         </div>
 
         {/* Close button */}
-        <div className="px-5 pt-2 pb-4">
+        <div className="px-5 pt-2 pb-4 flex-shrink-0">
           <button
             onClick={() => navigate('dashboard')}
             className="w-9 h-9 rounded-full bg-black/8 flex items-center justify-center text-[#1c1c1e] hover:bg-black/12 transition-colors"
@@ -229,14 +250,14 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         </div>
 
         {/* Title */}
-        <div className="px-5 pb-7">
+        <div className="px-5 pb-7 flex-shrink-0">
           <h2 className="text-[28px] font-bold text-[#1c1c1e] leading-tight">
             Save your {label}?
           </h2>
         </div>
 
-        {/* Info to save */}
-        <div className="px-5 flex-1">
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-5 pb-4">
           <p className="text-[16px] font-bold text-[#1c1c1e] mb-3">Info to save</p>
 
           <div className="bg-white rounded-2xl flex items-center px-4 py-3 shadow-sm">
@@ -257,8 +278,8 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="px-5 pt-8 pb-10 space-y-3">
+        {/* Pinned action buttons */}
+        <div className="px-5 pt-4 pb-10 space-y-3 flex-shrink-0">
           <PrimaryButton onClick={handleAccept} loading={processing}>
             Save
           </PrimaryButton>
@@ -277,6 +298,17 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
   // ── Scan ──
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
+      {/* Hidden elements for photo capture */}
+      <input
+        ref={captureFileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileCapture}
+      />
+      <div id="qr-capture-receive" style={{ display: 'none' }} />
+
       <header className="flex items-center gap-4 px-5 pt-12 pb-4 flex-shrink-0">
         <button
           onClick={() => navigate('dashboard')}
@@ -293,7 +325,8 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         </div>
       </header>
 
-      <div className="flex-1 px-5 pb-8 space-y-4">
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-4">
         {/* Camera / Paste toggle */}
         <div className="flex bg-black/5 rounded-xl p-1">
           <button
@@ -313,10 +346,7 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         </div>
 
         {showManual ? (
-          <form
-            onSubmit={(e) => { e.preventDefault(); if (manualUri.trim()) processOfferUri(manualUri.trim()); }}
-            className="space-y-3"
-          >
+          <div className="space-y-3">
             <textarea
               value={manualUri}
               onChange={(e) => { setManualUri(e.target.value); setError(''); }}
@@ -326,10 +356,7 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
               aria-label="Paste credential offer or presentation URI"
             />
             {error && <ErrorMessage message={error} />}
-            <PrimaryButton type="submit" disabled={!manualUri.trim()}>
-              Process URI
-            </PrimaryButton>
-          </form>
+          </div>
         ) : (
           <div className="space-y-3">
             <QRScanner onScan={(r) => processOfferUri(r)} />
@@ -338,6 +365,38 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
               Supports credential offers and presentation requests
             </p>
           </div>
+        )}
+      </div>
+
+      {/* Pinned bottom button */}
+      <div className="px-5 pt-3 pb-10 flex-shrink-0">
+        {showManual ? (
+          <PrimaryButton
+            onClick={() => { if (manualUri.trim()) processOfferUri(manualUri.trim()); }}
+            disabled={!manualUri.trim()}
+          >
+            Process URI
+          </PrimaryButton>
+        ) : (
+          <PrimaryButton
+            onClick={() => captureFileRef.current?.click()}
+            disabled={isCapturing}
+            loading={isCapturing}
+          >
+            {!isCapturing && (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+                  stroke="white"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <circle cx="12" cy="13" r="4" stroke="white" strokeWidth="1.7" />
+              </svg>
+            )}
+            {isCapturing ? 'Scanning…' : 'Take Photo of QR Code'}
+          </PrimaryButton>
         )}
       </div>
     </div>

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import PrimaryButton from './PrimaryButton';
 
 interface QRScannerProps {
   onScan: (result: string) => void;
@@ -12,15 +11,12 @@ let instanceCounter = 0;
 
 export default function QRScanner({ onScan, onError }: QRScannerProps) {
   const liveId = useRef(`qr-live-${++instanceCounter}`);
-  const fileId = useRef(`qr-file-${instanceCounter}`);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const startedRef = useRef(false);
   const scannedRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(true);
-  const [isCapturing, setIsCapturing] = useState(false);
 
   // If camera was previously granted, show optimistic "Camera starting…"
   const hadCamera = localStorage.getItem(CAMERA_OK_KEY) === '1';
@@ -73,45 +69,8 @@ export default function QRScanner({ onScan, onError }: QRScannerProps) {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── "Take Photo" — capture a single frame and decode QR from it ──
-  const handleFileCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    // Reset input so the same file can be selected again
-    e.target.value = '';
-
-    setIsCapturing(true);
-    try {
-      const fileScanner = new Html5Qrcode(fileId.current);
-      const result = await fileScanner.scanFile(file, /* showImage */ false);
-      if (!scannedRef.current) {
-        scannedRef.current = true;
-        onScan(result);
-      }
-    } catch {
-      // QR code not found in photo — show brief feedback
-      setCameraError('No QR code found in the photo. Try again with a clearer image.');
-      setTimeout(() => setCameraError(null), 3000);
-    } finally {
-      setIsCapturing(false);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-3">
-      {/* Hidden file input for capture */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleFileCapture}
-      />
-
-      {/* Hidden div required by Html5Qrcode.scanFile */}
-      <div id={fileId.current} style={{ display: 'none' }} />
-
       {/* Live viewfinder */}
       {!cameraError && (
         <div className="relative w-full">
@@ -159,23 +118,6 @@ export default function QRScanner({ onScan, onError }: QRScannerProps) {
           <p className="text-sm text-[#8e8e93] leading-relaxed">{cameraError}</p>
         </div>
       )}
-
-      {/* "Take Photo" capture button — always visible */}
-      <PrimaryButton onClick={() => fileInputRef.current?.click()} disabled={isCapturing} loading={isCapturing}>
-        {!isCapturing && (
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path
-              d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
-              stroke="white"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="12" cy="13" r="4" stroke="white" strokeWidth="1.7" />
-          </svg>
-        )}
-        {isCapturing ? 'Scanning…' : 'Take Photo of QR Code'}
-      </PrimaryButton>
     </div>
   );
 }
