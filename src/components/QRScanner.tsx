@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
+import PrimaryButton from './PrimaryButton';
 
 interface QRScannerProps {
   onScan: (result: string) => void;
@@ -116,7 +117,7 @@ export default function QRScanner({ onScan, onError }: QRScannerProps) {
         <div className="relative w-full">
           {isStarting && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-2xl z-10 gap-3 min-h-[260px]">
-              <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+              <div className="w-8 h-8 border-2 border-[#5B4FE9]/30 border-t-[#5B4FE9] rounded-full animate-spin" />
               <p className="text-white/70 text-xs">
                 {hadCamera ? 'Starting camera…' : 'Requesting camera access…'}
               </p>
@@ -145,32 +146,36 @@ export default function QRScanner({ onScan, onError }: QRScannerProps) {
       {/* Error state */}
       {cameraError && (
         <div className="flex flex-col items-center gap-3 p-5 bg-black/5 rounded-2xl text-center">
-          <span className="text-3xl" aria-hidden>📷</span>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden className="text-[#8e8e93]">
+            <path
+              d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="1.7" />
+          </svg>
           <p className="text-sm text-[#8e8e93] leading-relaxed">{cameraError}</p>
         </div>
       )}
 
       {/* "Take Photo" capture button — always visible */}
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        disabled={isCapturing}
-        className="flex items-center justify-center gap-2 w-full bg-[#1c1c1e] hover:bg-black active:bg-black/80 disabled:opacity-50 text-white font-semibold py-3.5 rounded-2xl text-[15px] transition-colors min-h-[50px]"
-      >
-        {isCapturing ? (
-          <>
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            <span>Scanning…</span>
-          </>
-        ) : (
-          <>
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-              <circle cx="10" cy="10" r="4.5" stroke="white" strokeWidth="1.6" />
-              <path d="M2 7V5a2 2 0 012-2h2M14 3h2a2 2 0 012 2v2M18 13v2a2 2 0 01-2 2h-2M6 17H4a2 2 0 01-2-2v-2" stroke="white" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
-            <span>Take Photo of QR Code</span>
-          </>
+      <PrimaryButton onClick={() => fileInputRef.current?.click()} disabled={isCapturing} loading={isCapturing}>
+        {!isCapturing && (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+              stroke="white"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <circle cx="12" cy="13" r="4" stroke="white" strokeWidth="1.7" />
+          </svg>
         )}
-      </button>
+        {isCapturing ? 'Scanning…' : 'Take Photo of QR Code'}
+      </PrimaryButton>
     </div>
   );
 }

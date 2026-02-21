@@ -68,7 +68,7 @@ export default function CredentialStack({ credentials, onSelectCredential }: Cre
               // Large-blur shadow: the 40px spread creates a very gradual fade on the
               // peek area above, avoiding a hard shadow line while still giving depth.
               filter: isLast && renderOrder.length > 1
-                ? 'drop-shadow(0 -2px 40px rgba(0,0,0,0.18))'
+                ? 'drop-shadow(0 -6px 18px rgba(0,0,0,0.30)) drop-shadow(0 -2px 40px rgba(0,0,0,0.15))'
                 : undefined,
             }}
             onClick={() => onSelectCredential(credential)}

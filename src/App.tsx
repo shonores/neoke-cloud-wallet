@@ -71,12 +71,12 @@ function TabBar({
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white/90 backdrop-blur-xl border-t border-black/5 flex"
+      className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto bg-white/90 backdrop-blur-xl border-t border-black/5 flex z-50"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       {/* Home */}
       <button
-        className={`flex-1 flex flex-col items-center gap-1 pt-3 pb-3 transition-colors ${homeActive ? 'text-blue-600' : 'text-[#8e8e93]'}`}
+        className={`flex-1 flex flex-col items-center gap-1 pt-3 pb-3 transition-colors ${homeActive ? 'text-[#5B4FE9]' : 'text-[#8e8e93]'}`}
         onClick={() => onNavigate('dashboard')}
         aria-label="Home"
       >
@@ -96,7 +96,7 @@ function TabBar({
 
       {/* Scan QR Code */}
       <button
-        className={`flex-1 flex flex-col items-center gap-1 pt-3 pb-3 transition-colors ${scanActive ? 'text-blue-600' : 'text-[#8e8e93]'}`}
+        className={`flex-1 flex flex-col items-center gap-1 pt-3 pb-3 transition-colors ${scanActive ? 'text-[#5B4FE9]' : 'text-[#8e8e93]'}`}
         onClick={() => onNavigate('receive')}
         aria-label="Scan QR Code"
       >
@@ -114,7 +114,7 @@ function TabBar({
 
       {/* Account */}
       <button
-        className={`flex-1 flex flex-col items-center gap-1 pt-3 pb-3 transition-colors ${accountActive ? 'text-blue-600' : 'text-[#8e8e93]'}`}
+        className={`flex-1 flex flex-col items-center gap-1 pt-3 pb-3 transition-colors ${accountActive ? 'text-[#5B4FE9]' : 'text-[#8e8e93]'}`}
         onClick={() => onNavigate('account')}
         aria-label="Account"
       >

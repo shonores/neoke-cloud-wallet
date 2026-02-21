@@ -56,10 +56,10 @@ function IconPaste() {
 function IconCheckCircle() {
   return (
     <svg width="56" height="56" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="12" cy="12" r="10" stroke="#22c55e" strokeWidth="1.5" />
+      <circle cx="12" cy="12" r="10" stroke="#5B4FE9" strokeWidth="1.5" />
       <path
         d="M8.5 12l2.5 2.5 4.5-5"
-        stroke="#22c55e"
+        stroke="#5B4FE9"
         strokeWidth="1.8"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -190,11 +190,11 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 min-h-screen bg-[#F2F2F7]">
         <div className="text-center space-y-4">
-          <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto">
+          <div className="w-20 h-20 bg-[#5B4FE9]/10 rounded-full flex items-center justify-center mx-auto">
             <IconCheckCircle />
           </div>
           <div>
-            <p className="text-[#1c1c1e] font-semibold text-[17px]">Credential Added!</p>
+            <p className="text-[#1c1c1e] font-bold text-[28px] leading-tight">Credential Added!</p>
             <p className="text-[#8e8e93] text-[15px] mt-1">Returning to your wallet…</p>
           </div>
         </div>
