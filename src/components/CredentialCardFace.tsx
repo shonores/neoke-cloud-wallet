@@ -10,42 +10,8 @@ interface CredentialCardFaceProps {
   description?: string;
   bgColor: string;
   textColor: string;
+  /** Custom issuer logo URL — overrides Neoke brand mark */
   logoUrl?: string;
-}
-
-function NeokeLogoMark({ color }: { color: string }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <svg width="22" height="16" viewBox="0 0 22 16" fill="none" aria-hidden>
-        {/* N stroke */}
-        <path
-          d="M2 14V2L11 14V2"
-          stroke={color}
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        {/* Upper wing */}
-        <path
-          d="M13 8 C13 4.5 15.5 2 19 2 C19 5.5 16.5 8 13 8Z"
-          fill={color}
-          opacity="0.9"
-        />
-        {/* Lower wing */}
-        <path
-          d="M13 8 C13 11.5 15.5 14 19 14 C19 10.5 16.5 8 13 8Z"
-          fill={color}
-          opacity="0.6"
-        />
-      </svg>
-      <span
-        className="text-[13px] font-semibold tracking-tight"
-        style={{ color, opacity: 0.95 }}
-      >
-        neoke
-      </span>
-    </div>
-  );
 }
 
 export default function CredentialCardFace({
@@ -72,17 +38,23 @@ export default function CredentialCardFace({
         >
           {label}
         </p>
+
+        {/* Logo: custom issuer logo if provided, otherwise Neoke brand */}
         {logoUrl ? (
           <img
             src={logoUrl}
             alt="Issuer logo"
-            className="h-7 object-contain flex-shrink-0"
-            style={{ maxWidth: '40%' }}
+            className="h-6 object-contain flex-shrink-0"
+            style={{ maxWidth: '42%' }}
           />
         ) : (
-          <div className="flex-shrink-0">
-            <NeokeLogoMark color={textColor} />
-          </div>
+          /* Neoke brand logo — white version works on all dark card backgrounds */
+          <img
+            src="/neoke-logo.png"
+            alt="Neoke"
+            className="h-5 object-contain flex-shrink-0"
+            style={{ maxWidth: '42%', opacity: 0.95 }}
+          />
         )}
       </div>
 
