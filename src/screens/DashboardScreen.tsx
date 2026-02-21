@@ -52,7 +52,7 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
   return (
     <div className="flex-1 flex flex-col bg-[#F2F2F7] min-h-screen">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 pt-12 pb-4">
+      <header className="flex items-center justify-between px-5 pt-12 pb-4">
         <div>
           <h1 className="text-2xl font-bold text-[#1c1c1e]">Neoke wallet</h1>
           {!loading && !error && (
@@ -81,7 +81,7 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto px-4 pb-28">
+      <main className="flex-1 overflow-y-auto px-5 pb-28">
         {loading ? (
           <div className="flex items-center justify-center pt-20">
             <div className="text-center space-y-3">

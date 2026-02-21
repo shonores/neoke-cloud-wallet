@@ -57,6 +57,7 @@ export default function CredentialStack({ credentials, onSelectCredential }: Cre
   return (
     <div
       ref={containerRef}
+      className="w-full"
       style={{ position: 'relative', height: containerHeight }}
     >
       {orderedCredentials.map((credential, idx) => (

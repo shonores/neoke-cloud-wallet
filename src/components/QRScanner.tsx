@@ -6,45 +6,59 @@ interface QRScannerProps {
   onError?: (error: string) => void;
 }
 
+const CAMERA_OK_KEY = 'neoke_camera_ok';
 let instanceCounter = 0;
 
 export default function QRScanner({ onScan, onError }: QRScannerProps) {
-  const idRef = useRef(`qr-${++instanceCounter}`);
+  const liveId = useRef(`qr-live-${++instanceCounter}`);
+  const fileId = useRef(`qr-file-${instanceCounter}`);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const startedRef = useRef(false);
+  const scannedRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(true);
-  const scannedRef = useRef(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+
+  // If camera was previously granted, show optimistic "Camera starting…"
+  const hadCamera = localStorage.getItem(CAMERA_OK_KEY) === '1';
 
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
 
-    const scanner = new Html5Qrcode(idRef.current);
+    const scanner = new Html5Qrcode(liveId.current);
     scannerRef.current = scanner;
 
     scanner
       .start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1 },
+        { fps: 10, qrbox: { width: 240, height: 240 }, aspectRatio: 1 },
         (decodedText) => {
           if (scannedRef.current) return;
           scannedRef.current = true;
           onScan(decodedText);
         },
-        () => {}
+        () => {} // frame-level scan failure — normal, ignore
       )
-      .then(() => setIsStarting(false))
+      .then(() => {
+        setIsStarting(false);
+        // Remember that camera permission was granted
+        localStorage.setItem(CAMERA_OK_KEY, '1');
+      })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
-        if (msg.toLowerCase().includes('permission')) {
+        if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('denied')) {
           setCameraError(
-            'Camera access is needed for QR scanning. Please enable camera permission in your browser settings, or paste the URI manually.'
+            'Camera access is needed for QR scanning. Enable it in browser settings, or use "Take Photo" below.'
           );
-        } else if (msg.toLowerCase().includes('no cameras')) {
-          setCameraError('No camera found on this device. Please paste the URI manually.');
+          // Clear stored flag since permission was revoked
+          localStorage.removeItem(CAMERA_OK_KEY);
+        } else if (msg.toLowerCase().includes('no cameras') || msg.toLowerCase().includes('not found')) {
+          setCameraError('No camera detected. Paste the URI manually.');
         } else {
-          setCameraError('Unable to start camera. Please paste the URI manually.');
+          setCameraError('Camera unavailable. Use "Take Photo" or paste the URI manually.');
           onError?.(msg);
         }
         setIsStarting(false);
@@ -58,37 +72,105 @@ export default function QRScanner({ onScan, onError }: QRScannerProps) {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (cameraError) {
-    return (
-      <div className="flex flex-col items-center gap-4 p-6 bg-black/5 rounded-2xl text-center">
-        <span className="text-4xl" aria-hidden>📷</span>
-        <p className="text-sm text-[#8e8e93]">{cameraError}</p>
-      </div>
-    );
-  }
+  // ── "Take Photo" — capture a single frame and decode QR from it ──
+  const handleFileCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so the same file can be selected again
+    e.target.value = '';
+
+    setIsCapturing(true);
+    try {
+      const fileScanner = new Html5Qrcode(fileId.current);
+      const result = await fileScanner.scanFile(file, /* showImage */ false);
+      if (!scannedRef.current) {
+        scannedRef.current = true;
+        onScan(result);
+      }
+    } catch {
+      // QR code not found in photo — show brief feedback
+      setCameraError('No QR code found in the photo. Try again with a clearer image.');
+      setTimeout(() => setCameraError(null), 3000);
+    } finally {
+      setIsCapturing(false);
+    }
+  };
 
   return (
-    <div className="relative w-full">
-      {isStarting && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/20 rounded-2xl z-10">
-          <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
-        </div>
-      )}
-      <div
-        id={idRef.current}
-        className="w-full rounded-2xl overflow-hidden bg-black"
+    <div className="flex flex-col gap-3">
+      {/* Hidden file input for capture */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileCapture}
       />
-      {!isStarting && (
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-          <div className="relative w-56 h-56">
-            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-blue-500 rounded-tl-lg" />
-            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-blue-500 rounded-tr-lg" />
-            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-blue-500 rounded-bl-lg" />
-            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-blue-500 rounded-br-lg" />
-            <div className="absolute left-1 right-1 h-0.5 bg-blue-500/60 top-1/2 animate-pulse" />
-          </div>
+
+      {/* Hidden div required by Html5Qrcode.scanFile */}
+      <div id={fileId.current} style={{ display: 'none' }} />
+
+      {/* Live viewfinder */}
+      {!cameraError && (
+        <div className="relative w-full">
+          {isStarting && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-2xl z-10 gap-3 min-h-[260px]">
+              <div className="w-8 h-8 border-2 border-blue-500/30 border-t-blue-500 rounded-full animate-spin" />
+              <p className="text-white/70 text-xs">
+                {hadCamera ? 'Starting camera…' : 'Requesting camera access…'}
+              </p>
+            </div>
+          )}
+          <div
+            id={liveId.current}
+            className="w-full rounded-2xl overflow-hidden bg-black"
+          />
+          {/* Corner guides */}
+          {!isStarting && (
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+              <div className="relative w-52 h-52">
+                <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-white rounded-tl-lg" />
+                <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-white rounded-tr-lg" />
+                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-white rounded-bl-lg" />
+                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-white rounded-br-lg" />
+                {/* Scan line */}
+                <div className="absolute left-2 right-2 h-px bg-blue-400/80 top-1/2 animate-pulse" />
+              </div>
+            </div>
+          )}
         </div>
       )}
+
+      {/* Error state */}
+      {cameraError && (
+        <div className="flex flex-col items-center gap-3 p-5 bg-black/5 rounded-2xl text-center">
+          <span className="text-3xl" aria-hidden>📷</span>
+          <p className="text-sm text-[#8e8e93] leading-relaxed">{cameraError}</p>
+        </div>
+      )}
+
+      {/* "Take Photo" capture button — always visible */}
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        disabled={isCapturing}
+        className="flex items-center justify-center gap-2 w-full bg-[#1c1c1e] hover:bg-black active:bg-black/80 disabled:opacity-50 text-white font-semibold py-3.5 rounded-2xl text-[15px] transition-colors min-h-[50px]"
+      >
+        {isCapturing ? (
+          <>
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            <span>Scanning…</span>
+          </>
+        ) : (
+          <>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
+              <circle cx="10" cy="10" r="4.5" stroke="white" strokeWidth="1.6" />
+              <path d="M2 7V5a2 2 0 012-2h2M14 3h2a2 2 0 012 2v2M18 13v2a2 2 0 01-2 2h-2M6 17H4a2 2 0 01-2-2v-2" stroke="white" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+            <span>Take Photo of QR Code</span>
+          </>
+        )}
+      </button>
     </div>
   );
 }
