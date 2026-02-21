@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { listCredentials, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { getLocalCredentials } from '../store/localCredentials';
+import { getLocalCredentials, clearLocalCredentials } from '../store/localCredentials';
 import CredentialStack from '../components/CredentialStack';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
@@ -18,6 +18,7 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [fromLocalCache, setFromLocalCache] = useState(false);
 
   const token = state.token;
 
@@ -25,12 +26,14 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
     if (!token) return;
     setLoading(true);
     setError('');
+    setFromLocalCache(false);
     try {
       const creds = await listCredentials(token);
       setCredentials(creds);
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         setCredentials(getLocalCredentials());
+        setFromLocalCache(true);
       } else {
         setError(
           err instanceof Error
@@ -43,6 +46,12 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
     }
   }, [token]);
 
+  const handleClearCache = useCallback(() => {
+    clearLocalCredentials();
+    setCredentials([]);
+    setFromLocalCache(false);
+  }, []);
+
   useEffect(() => {
     fetchCredentials();
   }, [fetchCredentials, refreshSignal]);
@@ -54,11 +63,18 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
         <div>
           <h1 className="text-2xl font-bold text-[#1c1c1e]">Neoke wallet</h1>
           {!loading && !error && (
-            <p className="text-sm text-[#8e8e93] mt-0.5">
-              {credentials.length === 0
-                ? 'No credentials'
-                : `${credentials.length} credential${credentials.length !== 1 ? 's' : ''}`}
-            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-sm text-[#8e8e93]">
+                {credentials.length === 0
+                  ? 'No credentials'
+                  : `${credentials.length} credential${credentials.length !== 1 ? 's' : ''}`}
+              </p>
+              {fromLocalCache && (
+                <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
+                  local cache
+                </span>
+              )}
+            </div>
           )}
         </div>
         <button
@@ -108,6 +124,19 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
               credentials={credentials}
               onSelectCredential={(c) => navigate('detail', { selectedCredential: c })}
             />
+            {fromLocalCache && (
+              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between">
+                <p className="text-xs text-amber-700 leading-snug max-w-[200px]">
+                  Showing locally cached credentials. Server list unavailable.
+                </p>
+                <button
+                  onClick={handleClearCache}
+                  className="text-xs font-semibold text-amber-700 underline flex-shrink-0 ml-3 min-h-[44px] flex items-center"
+                >
+                  Clear cache
+                </button>
+              </div>
+            )}
           </div>
         )}
       </main>

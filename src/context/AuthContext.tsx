@@ -77,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     intervalRef.current = setInterval(() => {
       const now = Date.now();
-      if (state.expiresAt && now >= state.expiresAt - 30_000) {
+      if (state.expiresAt && now >= state.expiresAt - 300_000) {
         dispatch({ type: 'SESSION_EXPIRED' });
         if (intervalRef.current) clearInterval(intervalRef.current);
       }
