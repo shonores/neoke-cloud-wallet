@@ -52,30 +52,16 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
   return (
     <div className="flex-1 flex flex-col bg-[#F2F2F7] min-h-screen">
 
-      {/* Header: ⋮ alone top-right first, then "Neoke wallet" title on the line below */}
-      <header className="px-5 pt-12">
-        <div className="flex justify-end items-center gap-2 mb-1">
-          {usingLocalFallback && (
-            <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
-              offline
-            </span>
-          )}
-          <button
-            onClick={fetchCredentials}
-            className="w-8 h-8 rounded-full hover:bg-black/6 flex items-center justify-center transition-colors"
-            aria-label="Refresh"
-            title="Refresh"
-          >
-            <svg width="4" height="18" viewBox="0 0 4 18" fill="none" aria-hidden>
-              <circle cx="2" cy="2" r="2" fill="#1c1c1e" />
-              <circle cx="2" cy="9" r="2" fill="#1c1c1e" />
-              <circle cx="2" cy="16" r="2" fill="#1c1c1e" />
-            </svg>
-          </button>
-        </div>
-        <h1 className="text-[28px] font-bold text-[#1c1c1e] leading-tight pb-4">
+      {/* Header */}
+      <header className="px-5 pt-12 pb-4 flex items-start justify-between">
+        <h1 className="text-[28px] font-bold text-[#1c1c1e] leading-tight">
           Neoke wallet
         </h1>
+        {usingLocalFallback && (
+          <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full mt-2">
+            offline
+          </span>
+        )}
       </header>
 
       {/* Content — no overflow-y-auto here; let viewport scroll so no scrollbar width is stolen from card container */}

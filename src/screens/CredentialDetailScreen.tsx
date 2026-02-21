@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  getCardGradient,
+  getCardColor,
   getCredentialLabel,
   getCredentialDescription,
   inferStatus,
@@ -9,6 +10,8 @@ import {
   formatDate,
 } from '../utils/credentialHelpers';
 import { deleteLocalCredential } from '../store/localCredentials';
+import { deleteCredential } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import StatusBadge from '../components/StatusBadge';
 import CredentialCardFace from '../components/CredentialCardFace';
 import type { Credential } from '../types';
@@ -21,19 +24,25 @@ interface CredentialDetailScreenProps {
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}/;
 
 export default function CredentialDetailScreen({ credential, onBack }: CredentialDetailScreenProps) {
-  const gradient = getCardGradient(credential);
-  const label = credential.displayMetadata?.label ?? getCredentialLabel(credential);
-  const description =
-    credential.displayMetadata?.description ?? getCredentialDescription(credential);
+  const { state } = useAuth();
+  const [deleting, setDeleting] = useState(false);
+
+  const { backgroundColor: bgColor, textColor } = getCardColor(credential);
+  const label = getCredentialLabel(credential);
+  const description = getCredentialDescription(credential);
   const status = inferStatus(credential);
-  const bgColor = credential.displayMetadata?.backgroundColor ?? gradient.from;
-  const textColor = credential.displayMetadata?.textColor ?? '#ffffff';
   const logoUrl = credential.displayMetadata?.logoUrl;
 
   const namespaceGroups = getNamespaceGroups(credential);
   const genericFields = namespaceGroups.length === 0 ? extractFields(credential) : [];
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    // Fire server delete (best-effort) then remove locally
+    if (state.token) {
+      await deleteCredential(state.token, credential.id);
+    }
     deleteLocalCredential(credential.id);
     onBack();
   };
@@ -68,19 +77,24 @@ export default function CredentialDetailScreen({ credential, onBack }: Credentia
           </button>
           <button
             onClick={handleDelete}
-            className="w-10 h-10 rounded-full bg-black/6 hover:bg-red-50 flex items-center justify-center transition-colors group"
+            disabled={deleting}
+            className="w-10 h-10 rounded-full bg-black/6 hover:bg-red-50 flex items-center justify-center transition-colors group disabled:opacity-50"
             aria-label="Delete credential"
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M2 4h12M5.5 4V2.5A1 1 0 016.5 1.5h3a1 1 0 011 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1 1 0 001 1h6a1 1 0 001-1l.5-9"
-                stroke="#8e8e93"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="group-hover:stroke-red-500 transition-colors"
-              />
-            </svg>
+            {deleting ? (
+              <div className="w-4 h-4 border-2 border-[#8e8e93]/30 border-t-red-500 rounded-full animate-spin" />
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path
+                  d="M2 4h12M5.5 4V2.5A1 1 0 016.5 1.5h3a1 1 0 011 1V4M6.5 7v5M9.5 7v5M3.5 4l.5 9a1 1 0 001 1h6a1 1 0 001-1l.5-9"
+                  stroke="#8e8e93"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="group-hover:stroke-red-500 transition-colors"
+                />
+              </svg>
+            )}
           </button>
         </div>
 

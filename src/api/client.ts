@@ -157,6 +157,26 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
 }
 
 // ============================================================
+// Credentials — delete
+// ============================================================
+
+/**
+ * Delete a credential from the server wallet.
+ * Silently swallows errors (the credential is removed locally regardless).
+ */
+export async function deleteCredential(token: string, credentialId: string): Promise<void> {
+  try {
+    await request<void>(`/:/credentials/${encodeURIComponent(credentialId)}`, {
+      method: 'DELETE',
+      token,
+    });
+  } catch {
+    // Server may not support this endpoint or credential may already be gone;
+    // local removal proceeds regardless.
+  }
+}
+
+// ============================================================
 // Keys
 // ============================================================
 export async function fetchKeys(token: string): Promise<WalletKey[]> {

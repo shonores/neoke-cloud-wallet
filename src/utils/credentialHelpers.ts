@@ -67,13 +67,47 @@ const DOC_TYPE_DESCRIPTIONS: Record<string, string> = {
   'eu.europa.ec.eudi.pid.1': 'EU Digital Identity credential',
 };
 
+// Per-docType display colours (background / text)
+const DOC_TYPE_COLORS: Record<string, { backgroundColor: string; textColor: string }> = {
+  'org.iso.18013.5.1':      { backgroundColor: '#991b1b', textColor: '#ffffff' },
+  'org.iso.18013.5.1.mDL':  { backgroundColor: '#991b1b', textColor: '#ffffff' },
+  'org.iso.23220.photoid.1': { backgroundColor: '#1d4ed8', textColor: '#ffffff' },
+  'eu.europa.ec.eudi.pid.1': { backgroundColor: '#1e40af', textColor: '#ffffff' },
+};
+
 // ============================================================
 // Display label for credential type
 // ============================================================
 export function getCredentialLabel(credential: Credential): string {
+  // 1. Explicit override wins
   if (credential.displayMetadata?.label) return credential.displayMetadata.label;
 
+  // 2. "name" field anywhere in namespaces (e.g. org.iso.18013.5.1.name)
+  if (credential.namespaces) {
+    for (const ns of Object.values(credential.namespaces)) {
+      if (typeof ns === 'object' && ns !== null && 'name' in ns && typeof ns.name === 'string') {
+        return ns.name;
+      }
+    }
+  }
+
+  // 3. credentialSubject.name
+  if (typeof credential.credentialSubject?.name === 'string') {
+    return credential.credentialSubject.name;
+  }
+
+  // 4. Known docType description (human-readable, e.g. "Mobile driver's licence")
+  if (credential.docType && DOC_TYPE_DESCRIPTIONS[credential.docType]) {
+    return DOC_TYPE_DESCRIPTIONS[credential.docType];
+  }
+
+  // 5. Known type entry description
   const types = credential.type ?? [];
+  for (const t of [...types].reverse()) {
+    if (DOC_TYPE_DESCRIPTIONS[t]) return DOC_TYPE_DESCRIPTIONS[t];
+  }
+
+  // 6. Fallback: humanise the most specific type or docType
   const specific = types.filter(
     (t) => t !== 'VerifiableCredential' && t !== 'VerifiableAttestation'
   );
@@ -117,7 +151,46 @@ export function getDocTypeDescription(docType?: string): string {
 // ============================================================
 export function getCredentialDescription(credential: Credential): string {
   if (credential.displayMetadata?.description) return credential.displayMetadata.description;
+
+  // issuing_authority from any namespace → show as description on card
+  if (credential.namespaces) {
+    for (const ns of Object.values(credential.namespaces)) {
+      if (
+        typeof ns === 'object' &&
+        ns !== null &&
+        'issuing_authority' in ns &&
+        typeof ns.issuing_authority === 'string'
+      ) {
+        return ns.issuing_authority;
+      }
+    }
+  }
+  if (typeof credential.credentialSubject?.issuing_authority === 'string') {
+    return credential.credentialSubject.issuing_authority;
+  }
+
   return getDocTypeDescription(credential.docType);
+}
+
+// ============================================================
+// Card colour (per-docType defaults, overridable via displayMetadata)
+// ============================================================
+export function getCardColor(credential: Credential): { backgroundColor: string; textColor: string } {
+  if (credential.displayMetadata?.backgroundColor) {
+    return {
+      backgroundColor: credential.displayMetadata.backgroundColor,
+      textColor: credential.displayMetadata.textColor ?? '#ffffff',
+    };
+  }
+  if (credential.docType && DOC_TYPE_COLORS[credential.docType]) {
+    return DOC_TYPE_COLORS[credential.docType];
+  }
+  for (const t of credential.type ?? []) {
+    if (DOC_TYPE_COLORS[t]) return DOC_TYPE_COLORS[t];
+  }
+  // Gradient fallback
+  const g = getCardGradient(credential);
+  return { backgroundColor: g.from, textColor: '#ffffff' };
 }
 
 // ============================================================
