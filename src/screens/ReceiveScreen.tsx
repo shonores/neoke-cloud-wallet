@@ -325,8 +325,8 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         </div>
       </header>
 
-      {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-4">
+      {/* Scrollable content — pb-28 clears the fixed button strip */}
+      <div className="flex-1 overflow-y-auto px-5 pb-28 space-y-4">
         {/* Camera / Paste toggle */}
         <div className="flex bg-black/5 rounded-xl p-1">
           <button
@@ -368,8 +368,8 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         )}
       </div>
 
-      {/* Pinned bottom button */}
-      <div className="px-5 pt-3 pb-10 flex-shrink-0">
+      {/* Fixed bottom button — same pattern as TabBar */}
+      <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto px-5 pt-3 pb-10 bg-[#F2F2F7] z-40">
         {showManual ? (
           <PrimaryButton
             onClick={() => { if (manualUri.trim()) processOfferUri(manualUri.trim()); }}
