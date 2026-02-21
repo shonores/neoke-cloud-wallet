@@ -89,8 +89,8 @@ export default function CredentialDetailScreen({ credential, onBack }: Credentia
           {label}
         </h1>
 
-        {/* Card — uses the exact same CredentialCardFace as home stack */}
-        <div className="px-5 flex-shrink-0">
+        {/* Card — full-width (no horizontal padding) to match home stack + tab bar */}
+        <div className="flex-shrink-0">
           <CredentialCardFace
             label={label}
             description={description}

@@ -51,46 +51,45 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
 
   return (
     <div className="flex-1 flex flex-col bg-[#F2F2F7] min-h-screen">
-      {/* Header */}
-      <header className="flex items-center justify-between px-5 pt-12 pb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1c1c1e]">Neoke wallet</h1>
-          {!loading && !error && (
-            <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-sm text-[#8e8e93]">
-                {credentials.length === 0
-                  ? 'No credentials'
-                  : `${credentials.length} credential${credentials.length !== 1 ? 's' : ''}`}
-              </p>
-              {usingLocalFallback && (
-                <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
-                  offline
-                </span>
-              )}
-            </div>
+
+      {/* Header — px-5 so title text aligns with card internal padding */}
+      <header className="flex items-center justify-between px-5 pt-12 pb-5">
+        <h1 className="text-[28px] font-bold text-[#1c1c1e] leading-tight">Neoke wallet</h1>
+        <div className="flex items-center gap-2">
+          {usingLocalFallback && (
+            <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
+              offline
+            </span>
           )}
+          {/* Three-dot menu — tap to refresh */}
+          <button
+            onClick={fetchCredentials}
+            className="w-9 h-9 rounded-full hover:bg-black/6 flex items-center justify-center transition-colors"
+            aria-label="More options"
+            title="Refresh"
+          >
+            <svg width="4" height="18" viewBox="0 0 4 18" fill="none" aria-hidden>
+              <circle cx="2" cy="2" r="2" fill="#1c1c1e" />
+              <circle cx="2" cy="9" r="2" fill="#1c1c1e" />
+              <circle cx="2" cy="16" r="2" fill="#1c1c1e" />
+            </svg>
+          </button>
         </div>
-        <button
-          onClick={fetchCredentials}
-          className="w-9 h-9 rounded-full bg-black/6 hover:bg-black/10 flex items-center justify-center transition-colors"
-          aria-label="Refresh credentials"
-          title="Refresh"
-        >
-          <span className="text-base text-[#1c1c1e]" aria-hidden>↻</span>
-        </button>
       </header>
 
-      {/* Content */}
-      <main className="flex-1 overflow-y-auto px-5 pb-28">
+      {/* Content — NO horizontal padding so cards fill full container width */}
+      <main className="flex-1 overflow-y-auto pb-28">
+
         {loading ? (
-          <div className="flex items-center justify-center pt-20">
+          <div className="px-5 flex items-center justify-center pt-20">
             <div className="text-center space-y-3">
               <LoadingSpinner size="lg" className="mx-auto" />
               <p className="text-[#8e8e93] text-sm">Loading credentials…</p>
             </div>
           </div>
+
         ) : error ? (
-          <div className="pt-8">
+          <div className="px-5 pt-8">
             <ErrorMessage message={error} />
             <button
               onClick={fetchCredentials}
@@ -99,37 +98,42 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
               Try again
             </button>
           </div>
+
         ) : credentials.length === 0 ? (
-          /* Empty state — matches No_credential.PNG */
-          <div className="flex items-center justify-center pt-12">
-            <div className="bg-white rounded-3xl p-8 mx-2 flex flex-col items-center text-center shadow-sm">
-              {/* Document icon in a purple rounded square */}
-              <div className="w-16 h-16 rounded-2xl bg-indigo-600 flex items-center justify-center mb-5">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden>
-                  <rect x="7" y="4" width="18" height="24" rx="3" fill="white" opacity="0.9" />
-                  <rect x="11" y="10" width="10" height="1.5" rx="0.75" fill="#4f46e5" />
-                  <rect x="11" y="14" width="10" height="1.5" rx="0.75" fill="#4f46e5" />
-                  <rect x="11" y="18" width="6" height="1.5" rx="0.75" fill="#4f46e5" />
+          /* Empty state — matches No_credential.PNG: left-aligned, circular icon, specific copy */
+          <div className="px-5 pt-3">
+            <div className="bg-white rounded-3xl p-5 shadow-sm">
+              {/* Circular icon — lavender background, passport/travel icon */}
+              <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  {/* Globe */}
+                  <circle cx="12" cy="10" r="5" stroke="#4f46e5" strokeWidth="1.5" />
+                  <path d="M12 5 C10 7 10 13 12 15 C14 13 14 7 12 5Z" stroke="#4f46e5" strokeWidth="1.2" fill="none" />
+                  <path d="M7 10h10" stroke="#4f46e5" strokeWidth="1.2" strokeLinecap="round" />
+                  {/* Bookmark/document bottom */}
+                  <path d="M8 17h8v4l-4-2-4 2v-4z" fill="#4f46e5" opacity="0.7" />
                 </svg>
               </div>
 
-              <h2 className="text-[18px] font-bold text-[#1c1c1e] mb-2">
+              <h2 className="text-[17px] font-bold text-[#1c1c1e] mb-1.5">
                 No travel document… yet!
               </h2>
-              <p className="text-sm text-[#8e8e93] max-w-[220px] mb-6 leading-relaxed">
-                Scan a QR code to receive your first verifiable credential.
+              <p className="text-[14px] text-[#8e8e93] mb-5 leading-relaxed">
+                You only need to upload it once and then you can reuse it for all future trips.
               </p>
 
               <button
                 onClick={() => navigate('receive')}
-                className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-[15px] font-semibold px-7 py-3 rounded-full transition-colors"
+                className="bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-[15px] font-semibold px-6 py-3 rounded-full transition-colors"
               >
-                Scan QR Code
+                Upload travel document
               </button>
             </div>
           </div>
+
         ) : (
-          <div className="pt-4">
+          /* Cards — full container width, no extra horizontal padding */
+          <div className="pt-3">
             <CredentialStack
               credentials={credentials}
               onSelectCredential={(c) => navigate('detail', { selectedCredential: c })}
