@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import DashboardScreen from './screens/DashboardScreen';
@@ -110,6 +110,15 @@ function AppInner() {
   const [savedNodeId] = useState<string>(() => {
     try { return localStorage.getItem('neoke_node_id') ?? ''; } catch { return ''; }
   });
+
+  // Reset state on login/logout transitions
+  useEffect(() => {
+    if (state.token) {
+      setCurrentView('dashboard');   // always land on home after login
+    } else {
+      setOnboardingStep(1);          // always go back to Step 1 after logout
+    }
+  }, [state.token]);
 
   // Authenticated navigation state
   const [currentView,        setCurrentView]        = useState<ViewName>('dashboard');
