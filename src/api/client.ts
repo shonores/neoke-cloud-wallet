@@ -183,29 +183,61 @@ function extractDisplayMetadataFromDoc(data: unknown): import('../types').Displa
 }
 
 // ============================================================
-// Credentials — fetch full document by wallet index
+// Credentials — try direct REST list endpoint
 // ============================================================
 
 /**
- * Fetch a full credential document by wallet index.
- * Tries several URL patterns used by different server versions.
- * Logs the raw responses to the browser console for debugging.
- * Returns null if every pattern fails.
+ * Attempt GET /:/credentials which some server versions support.
+ * Returns a parsed array of Credential objects on success, null on failure.
  */
-async function fetchCredentialDocument(token: string, index: number): Promise<unknown> {
-  const patterns = [
-    `/:/credentials/${index}`,
-    `/:/wallet/credentials/${index}`,
-    `/:/credentials/${index}/document`,
-  ];
+async function tryDirectCredentialList(token: string): Promise<Credential[] | null> {
+  try {
+    const raw = await request<unknown>('/:/credentials', { token });
+    console.log('[neoke] GET /:/credentials raw →', JSON.stringify(raw));
 
-  for (const url of patterns) {
-    try {
-      const result = await request<unknown>(url, { token });
-      console.debug('[neoke] credential doc ✓', url, result);
-      return result;
-    } catch (err) {
-      console.debug('[neoke] credential doc ✗', url, err instanceof Error ? err.message : err);
+    // Normalise various response shapes into an array
+    let items: unknown[] = [];
+    if (Array.isArray(raw)) {
+      items = raw;
+    } else if (raw && typeof raw === 'object') {
+      const d = raw as Record<string, unknown>;
+      const listKey = ['credentials', 'items', 'data', 'documents'].find(
+        (k) => Array.isArray(d[k])
+      );
+      if (listKey) items = d[listKey] as unknown[];
+    }
+
+    if (items.length === 0) return null;
+    return items as Credential[];
+  } catch (err) {
+    console.log('[neoke] GET /:/credentials failed →', err instanceof Error ? err.message : String(err));
+    return null;
+  }
+}
+
+// ============================================================
+// Credentials — fetch single document by any plausible identifier
+// ============================================================
+
+/**
+ * Try fetching a credential document using every plausible server URL.
+ * `ids` is an ordered list of candidate identifiers to try (numeric + string).
+ */
+async function fetchCredentialDocument(token: string, ids: (number | string)[]): Promise<unknown> {
+  for (const id of ids) {
+    const patterns = [
+      `/:/credentials/${id}`,
+      `/:/wallet/credentials/${id}`,
+      `/:/credentials/${id}/document`,
+    ];
+    for (const url of patterns) {
+      try {
+        const result = await request<unknown>(url, { token });
+        console.log('[neoke] credential doc ✓', url, '→', JSON.stringify(result));
+        return result;
+      } catch (err) {
+        console.log('[neoke] credential doc ✗', url, '→', err instanceof Error ? err.message : String(err));
+      }
     }
   }
   return null;
@@ -215,15 +247,16 @@ async function fetchCredentialDocument(token: string, index: number): Promise<un
 // Credentials — discovered via a broad VP preview
 // ============================================================
 
-/**
- * The /:/credentials REST endpoint does not exist on this server.
- * Instead we create a transient VP request with no doctype filter
- * (matches ALL mso_mdoc credentials) and preview it to get the
- * authoritative list of credentials currently in the wallet.
- * For each discovered credential we also fetch its full document
- * to populate namespaces (field values) and display metadata (colors).
- */
 export async function discoverWalletCredentials(token: string): Promise<Credential[]> {
+  // ── Strategy 1: Direct REST list ─────────────────────────────────────────
+  // Some server versions expose GET /:/credentials with full credential data.
+  const direct = await tryDirectCredentialList(token);
+  if (direct && direct.length > 0) {
+    console.log('[neoke] Using direct credential list, count:', direct.length, direct);
+    return direct;
+  }
+
+  // ── Strategy 2: VP discovery (proven to work for listing credentials) ────
   // 1. Create a broad VP discovery request
   const vpResp = await request<{ invocationUrl: string }>('/:/auth/siop/request', {
     method: 'POST',
@@ -242,17 +275,16 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
     }),
   });
 
-  // 2. Preview to get all candidates
-  // Cast to unknown first so we can inspect raw API fields not in our TypeScript interface.
+  // 2. Fetch raw preview — cast to unknown so we see ALL server fields.
   const previewRaw = await request<unknown>('/:/auth/siop/respond/preview', {
     method: 'POST',
     token,
     body: JSON.stringify({ request: vpResp.invocationUrl }),
   });
-  console.debug('[neoke] VP preview raw:', previewRaw);
+  console.log('[neoke] VP preview raw →', JSON.stringify(previewRaw));
   const preview = previewRaw as import('../types').VPPreviewResponse;
 
-  // 3. Collect all unique candidates (dedup by index)
+  // 3. Collect unique candidates, preserving raw objects alongside typed ones.
   type CandEntry = {
     cand: (typeof preview.queries)[0]['candidates'][0];
     raw: Record<string, unknown>;
@@ -261,7 +293,7 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
   const seen = new Set<number>();
   const entries: CandEntry[] = [];
   const rawQueries = ((previewRaw as Record<string, unknown>)['queries'] ?? []) as unknown[];
-  for (let qi = 0; qi < preview.queries.length; qi++) {
+  for (let qi = 0; qi < (preview.queries ?? []).length; qi++) {
     const rawQ = (rawQueries[qi] ?? {}) as Record<string, unknown>;
     const rawCands = (rawQ['candidates'] ?? []) as Record<string, unknown>[];
     for (let ci = 0; ci < preview.queries[qi].candidates.length; ci++) {
@@ -273,16 +305,31 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
     }
   }
 
-  // 4. Fetch full credential documents in parallel
-  const docs = await Promise.all(entries.map(({ cand }) => fetchCredentialDocument(token, cand.index)));
+  // 4. Build plausible credential identifiers for each entry and fetch docs in parallel.
+  //    cand.index is the wallet-array position (0, 1, 2…).
+  //    The raw candidate might also carry an `id`, `credentialId`, or large numeric field
+  //    that corresponds to the server's actual credential key (e.g. 74053).
+  const docs = await Promise.all(entries.map(({ cand, raw }) => {
+    const ids: (number | string)[] = [cand.index];
+    // Collect any numeric values from the raw candidate that look like server IDs (> 100)
+    for (const [k, v] of Object.entries(raw)) {
+      if (k === 'index') continue;
+      if (typeof v === 'number' && v > 100) ids.push(v);
+      if (typeof v === 'string' && /^\d{4,}$/.test(v)) ids.push(v);
+    }
+    // Also try common id fields by name
+    for (const k of ['id', 'credentialId', 'credential_id', 'walletIndex', 'wallet_index']) {
+      const v = raw[k];
+      if (v !== undefined && !ids.includes(v as number | string)) ids.push(v as number | string);
+    }
+    console.log('[neoke] candidate ids to try for cand.index', cand.index, '→', ids);
+    return fetchCredentialDocument(token, ids);
+  }));
 
-  // 5. Build Credential objects enriched with namespaces + displayMetadata.
-  //    Priority for each field: document fetch > raw VP candidate > undefined.
+  // 5. Build enriched Credential objects.
   const nowSec = Math.floor(Date.now() / 1000);
   const discovered: Credential[] = entries.map(({ cand, raw, docType }, i) => {
     const doc = docs[i];
-
-    // Prefer separately-fetched document; fall back to raw VP candidate fields.
     const namespaces =
       extractNamespacesFromDoc(doc) ?? extractNamespacesFromDoc(raw);
     const displayMetadata =
@@ -304,7 +351,7 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
     };
   });
 
-  console.debug('[neoke] discovered credentials:', discovered);
+  console.log('[neoke] discovered credentials →', JSON.stringify(discovered));
   return discovered;
 }
 

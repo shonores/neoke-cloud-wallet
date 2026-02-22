@@ -34,6 +34,10 @@ export function clearLocalCredentials(): void {
  */
 export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential[] {
   const local = getLocalCredentials();
+  console.log('[neoke] local store →', local.map((c) => ({
+    id: c.id, docType: c.docType, hasNamespaces: !!c.namespaces,
+    hasDisplayMeta: !!c.displayMetadata,
+  })));
 
   const merged = serverCreds.map((serverCred) => {
     // Match by docType or overlapping type strings
@@ -46,9 +50,8 @@ export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential
     );
 
     if (localMatch) {
-      // Server is authoritative for metadata; local provides field-level data.
-      // _availableClaims from the server is always the freshest field manifest.
-      // namespaces + displayMetadata: prefer server (freshly fetched) over local.
+      console.log('[neoke] merge match', serverCred.id, '← local', localMatch.id,
+        'localNS?', !!localMatch.namespaces, 'serverNS?', !!serverCred.namespaces);
       return {
         ...localMatch,
         id: serverCred.id,
@@ -62,6 +65,7 @@ export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential
         displayMetadata: serverCred.displayMetadata ?? localMatch.displayMetadata,
       };
     }
+    console.log('[neoke] no local match for', serverCred.id);
     return serverCred;
   });
 
