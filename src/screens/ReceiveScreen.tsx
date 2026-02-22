@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { receiveCredential, fetchKeys } from '../api/client';
+import { receiveCredential, fetchKeys, extractNamespacesFromDoc, extractDisplayMetadataFromDoc } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { detectUriType } from '../utils/uriRouter';
 import {
@@ -109,8 +109,14 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
 
     try {
       const response = await receiveCredential(state.token, trimmed, keyId);
-      const cred: Credential | null =
-        (response.credential as Credential) ??
+
+      // Try to locate the credential object at various nesting paths
+      const raw = response as Record<string, unknown>;
+      let cred: Credential | null =
+        (raw['credential'] as Credential) ??
+        (raw['document'] as Credential) ??
+        (raw['mdoc'] as Credential) ??
+        (raw['data'] as Credential) ??
         (response as unknown as Credential) ??
         null;
 
@@ -119,6 +125,23 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         setStage('error');
         return;
       }
+
+      // Enrich with namespaces/displayMetadata extracted from the full response
+      // (some server versions nest these outside the credential object)
+      if (!cred.namespaces) {
+        const ns = extractNamespacesFromDoc(response) ?? extractNamespacesFromDoc(raw['credential']);
+        if (ns) cred = { ...cred, namespaces: ns };
+      }
+      if (!cred.displayMetadata) {
+        const dm = extractDisplayMetadataFromDoc(response) ?? extractDisplayMetadataFromDoc(raw['credential']);
+        if (dm) cred = { ...cred, displayMetadata: dm };
+      }
+
+      console.log('[neoke] extracted cred →', {
+        id: cred.id, docType: cred.docType,
+        hasNamespaces: !!cred.namespaces, hasDisplayMeta: !!cred.displayMetadata,
+        namespaces: cred.namespaces,
+      });
 
       saveLocalCredential(cred);
       setReceivedCredential(cred);
