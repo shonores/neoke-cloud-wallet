@@ -124,10 +124,10 @@ export default function OnboardingStep2Screen({
           {loading ? (
             <>
               <LoadingSpinner size="sm" />
-              <span>Connecting…</span>
+              <span>Signing in…</span>
             </>
           ) : (
-            'Connect'
+            'Sign in'
           )}
         </button>
       </div>

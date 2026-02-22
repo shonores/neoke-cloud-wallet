@@ -36,20 +36,20 @@ export default function OnboardingStep1Screen({ savedNodeId, onContinue }: Onboa
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
-      {/* Top spacing + logo mark */}
-      <div className="px-6 pt-14 pb-8">
-        {/* Wallet icon */}
-        <div
-          className="w-12 h-12 rounded-2xl flex items-center justify-center mb-6 shadow-lg"
-          style={{ background: 'linear-gradient(135deg, #5B4FE9 0%, #7c3aed 100%)' }}
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <rect x="2" y="5" width="20" height="14" rx="2.5" stroke="white" strokeWidth="1.6" />
-            <path d="M2 10h20" stroke="white" strokeWidth="1.4" />
-            <rect x="14" y="13" width="4" height="2.5" rx="1" fill="white" />
-          </svg>
-        </div>
+      {/* Top logo area */}
+      <div
+        className="px-6 pt-14 pb-10 flex items-center justify-center"
+        style={{ background: 'linear-gradient(135deg, #5B4FE9 0%, #7c3aed 100%)' }}
+      >
+        <img
+          src="/logo-dark.png"
+          alt="Neoke"
+          className="h-10 w-auto object-contain"
+        />
+      </div>
 
+      {/* Title */}
+      <div className="px-6 pt-8 pb-8">
         <h1 className="text-[32px] font-bold text-[#1c1c1e] leading-tight mb-2">
           Let's get started
         </h1>
@@ -80,7 +80,7 @@ export default function OnboardingStep1Screen({ savedNodeId, onContinue }: Onboa
       {/* Spacer */}
       <div className="flex-1" />
 
-      {/* Bottom area */}
+      {/* Bottom area — pinned to bottom */}
       <div className="px-6 pb-10 space-y-4">
         <p className="text-center text-[13px] text-[#8e8e93] leading-relaxed">
           By continuing, you agree to Neoke's{' '}
