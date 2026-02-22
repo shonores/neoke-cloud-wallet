@@ -104,33 +104,28 @@ export async function apiKeyAuth(apiKey: string): Promise<AuthResponse> {
 }
 
 // ============================================================
-// Credentials — fetch full document by wallet index
+// Credentials — extraction helpers (shared by VP preview + doc fetch)
 // ============================================================
 
-/** Fetch the full credential document for a given wallet index. Returns null on any error. */
-async function fetchCredentialDocument(token: string, index: number): Promise<unknown> {
-  try {
-    return await request<unknown>(`/:/credentials/${index}`, { token });
-  } catch {
-    return null;
-  }
-}
-
-/** Extract namespace/value map from a raw credential document response. */
+/**
+ * Walk an arbitrary response object and return the first namespace map found.
+ * Tries many common wrapping patterns used by different server versions.
+ */
 function extractNamespacesFromDoc(data: unknown): Record<string, Record<string, unknown>> | undefined {
   if (!data || typeof data !== 'object') return undefined;
   const d = data as Record<string, unknown>;
 
-  // Try direct paths
-  const candidates = [
+  const paths: unknown[] = [
     d['namespaces'],
     (d['document'] as Record<string, unknown> | undefined)?.['namespaces'],
     (d['credential'] as Record<string, unknown> | undefined)?.['namespaces'],
     (d['mdoc'] as Record<string, unknown> | undefined)?.['namespaces'],
     (d['data'] as Record<string, unknown> | undefined)?.['namespaces'],
+    (d['issuerSigned'] as Record<string, unknown> | undefined)?.['nameSpaces'],
+    (d['issuerSigned'] as Record<string, unknown> | undefined)?.['namespaces'],
   ];
 
-  for (const ns of candidates) {
+  for (const ns of paths) {
     if (ns && typeof ns === 'object' && !Array.isArray(ns)) {
       return ns as Record<string, Record<string, unknown>>;
     }
@@ -138,12 +133,14 @@ function extractNamespacesFromDoc(data: unknown): Record<string, Record<string, 
   return undefined;
 }
 
-/** Extract display metadata (colors, label) from a raw credential document response. */
+/**
+ * Walk an arbitrary response object and return the first display-metadata block found.
+ * Handles camelCase, snake_case, nested arrays, and common wrapping patterns.
+ */
 function extractDisplayMetadataFromDoc(data: unknown): import('../types').DisplayMetadata | undefined {
   if (!data || typeof data !== 'object') return undefined;
   const d = data as Record<string, unknown>;
 
-  // Find a raw display object from various server response shapes
   const displayCandidates: unknown[] = [
     d['displayMetadata'],
     d['display_metadata'],
@@ -151,12 +148,13 @@ function extractDisplayMetadataFromDoc(data: unknown): import('../types').Displa
     (d['issuerMetadata'] as Record<string, unknown> | undefined)?.['display'],
     (d['issuer_metadata'] as Record<string, unknown> | undefined)?.['display'],
     (d['credential'] as Record<string, unknown> | undefined)?.['displayMetadata'],
+    (d['credential'] as Record<string, unknown> | undefined)?.['display'],
     (d['document'] as Record<string, unknown> | undefined)?.['displayMetadata'],
+    (d['meta'] as Record<string, unknown> | undefined)?.['display'],
   ];
 
   for (const raw of displayCandidates) {
     if (!raw) continue;
-    // Could be an array (e.g. issuer metadata display list) or a single object
     const obj = Array.isArray(raw) ? raw[0] : raw;
     if (!obj || typeof obj !== 'object') continue;
     const o = obj as Record<string, unknown>;
@@ -182,6 +180,35 @@ function extractDisplayMetadataFromDoc(data: unknown): import('../types').Displa
     }
   }
   return undefined;
+}
+
+// ============================================================
+// Credentials — fetch full document by wallet index
+// ============================================================
+
+/**
+ * Fetch a full credential document by wallet index.
+ * Tries several URL patterns used by different server versions.
+ * Logs the raw responses to the browser console for debugging.
+ * Returns null if every pattern fails.
+ */
+async function fetchCredentialDocument(token: string, index: number): Promise<unknown> {
+  const patterns = [
+    `/:/credentials/${index}`,
+    `/:/wallet/credentials/${index}`,
+    `/:/credentials/${index}/document`,
+  ];
+
+  for (const url of patterns) {
+    try {
+      const result = await request<unknown>(url, { token });
+      console.debug('[neoke] credential doc ✓', url, result);
+      return result;
+    } catch (err) {
+      console.debug('[neoke] credential doc ✗', url, err instanceof Error ? err.message : err);
+    }
+  }
+  return null;
 }
 
 // ============================================================
@@ -216,17 +243,32 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
   });
 
   // 2. Preview to get all candidates
-  const preview = await previewPresentation(token, vpResp.invocationUrl);
+  // Cast to unknown first so we can inspect raw API fields not in our TypeScript interface.
+  const previewRaw = await request<unknown>('/:/auth/siop/respond/preview', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ request: vpResp.invocationUrl }),
+  });
+  console.debug('[neoke] VP preview raw:', previewRaw);
+  const preview = previewRaw as import('../types').VPPreviewResponse;
 
   // 3. Collect all unique candidates (dedup by index)
-  type CandEntry = { cand: typeof preview.queries[0]['candidates'][0]; docType: string };
+  type CandEntry = {
+    cand: (typeof preview.queries)[0]['candidates'][0];
+    raw: Record<string, unknown>;
+    docType: string;
+  };
   const seen = new Set<number>();
   const entries: CandEntry[] = [];
-  for (const query of preview.queries) {
-    for (const cand of query.candidates) {
+  const rawQueries = ((previewRaw as Record<string, unknown>)['queries'] ?? []) as unknown[];
+  for (let qi = 0; qi < preview.queries.length; qi++) {
+    const rawQ = (rawQueries[qi] ?? {}) as Record<string, unknown>;
+    const rawCands = (rawQ['candidates'] ?? []) as Record<string, unknown>[];
+    for (let ci = 0; ci < preview.queries[qi].candidates.length; ci++) {
+      const cand = preview.queries[qi].candidates[ci];
       if (!seen.has(cand.index)) {
         seen.add(cand.index);
-        entries.push({ cand, docType: cand.type[0] ?? '' });
+        entries.push({ cand, raw: rawCands[ci] ?? {}, docType: cand.type[0] ?? '' });
       }
     }
   }
@@ -234,12 +276,17 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
   // 4. Fetch full credential documents in parallel
   const docs = await Promise.all(entries.map(({ cand }) => fetchCredentialDocument(token, cand.index)));
 
-  // 5. Build Credential objects enriched with namespaces + displayMetadata
+  // 5. Build Credential objects enriched with namespaces + displayMetadata.
+  //    Priority for each field: document fetch > raw VP candidate > undefined.
   const nowSec = Math.floor(Date.now() / 1000);
-  const discovered: Credential[] = entries.map(({ cand, docType }, i) => {
+  const discovered: Credential[] = entries.map(({ cand, raw, docType }, i) => {
     const doc = docs[i];
-    const namespaces = extractNamespacesFromDoc(doc);
-    const displayMetadata = extractDisplayMetadataFromDoc(doc);
+
+    // Prefer separately-fetched document; fall back to raw VP candidate fields.
+    const namespaces =
+      extractNamespacesFromDoc(doc) ?? extractNamespacesFromDoc(raw);
+    const displayMetadata =
+      extractDisplayMetadataFromDoc(doc) ?? extractDisplayMetadataFromDoc(raw);
 
     return {
       id: `server-${docType}-${cand.index}`,
@@ -250,17 +297,14 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
         ? new Date(cand.expiresAt * 1000).toISOString()
         : undefined,
       status: cand.expiresAt && nowSec > cand.expiresAt ? 'expired' : 'active',
-      // Full field values (populated from the credential document)
       ...(namespaces ? { namespaces } : {}),
-      // Display metadata (colors, label) from the server
       ...(displayMetadata ? { displayMetadata } : {}),
-      // Available claim names as fallback for field labels
       _availableClaims: cand.claims.available,
-      // Store wallet index for future operations
       _credentialIndex: cand.index,
     };
   });
 
+  console.debug('[neoke] discovered credentials:', discovered);
   return discovered;
 }
 

@@ -38,7 +38,6 @@ const ASPECT_RATIO = 1.586;
 export default function CredentialStack({ credentials, onSelectCredential }: CredentialStackProps) {
   // credentials prop arrives newest-first (from localStorage); reverse so oldest renders first.
   const renderOrder = [...credentials].reverse();
-  const lastIdx = renderOrder.length - 1;
 
   return (
     <div>
@@ -51,7 +50,6 @@ export default function CredentialStack({ credentials, onSelectCredential }: Cre
         // z-index: oldest = 1, newest = renderOrder.length (highest, in front)
         const zIndex = idx + 1;
         const isFirst = idx === 0;
-        const isLast = idx === lastIdx;
 
         return (
           <div
@@ -65,9 +63,10 @@ export default function CredentialStack({ credentials, onSelectCredential }: Cre
               zIndex,
               cursor: 'pointer',
               userSelect: 'none',
-              // Large-blur shadow: the 40px spread creates a very gradual fade on the
-              // peek area above, avoiding a hard shadow line while still giving depth.
-              filter: isLast && renderOrder.length > 1
+              // Every card except the very bottom one (oldest, furthest back) casts
+              // an upward shadow onto the peeking strip of the card below it.
+              // The oldest card (isFirst) sits directly on the background — no shadow needed.
+              filter: !isFirst && renderOrder.length > 1
                 ? 'drop-shadow(0 -6px 18px rgba(0,0,0,0.30)) drop-shadow(0 -2px 40px rgba(0,0,0,0.15))'
                 : undefined,
             }}
