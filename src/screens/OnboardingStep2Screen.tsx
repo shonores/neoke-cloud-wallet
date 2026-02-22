@@ -102,11 +102,8 @@ export default function OnboardingStep2Screen({
         )}
       </form>
 
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* Bottom area */}
-      <div className="px-6 pb-10 space-y-4">
+      {/* Pinned bottom area */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#F2F2F7] px-6 pb-10 pt-4 space-y-4">
         <p className="text-center text-[13px] text-[#8e8e93] leading-relaxed">
           By continuing, you agree to Neoke's{' '}
           <span className="text-[#5B4FE9] font-medium">Terms and Conditions</span>

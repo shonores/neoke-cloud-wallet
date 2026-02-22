@@ -36,20 +36,8 @@ export default function OnboardingStep1Screen({ savedNodeId, onContinue }: Onboa
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
-      {/* Top logo area */}
-      <div
-        className="px-6 pt-14 pb-10 flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #5B4FE9 0%, #7c3aed 100%)' }}
-      >
-        <img
-          src="/logo-dark.png"
-          alt="Neoke"
-          className="h-10 w-auto object-contain"
-        />
-      </div>
-
       {/* Title */}
-      <div className="px-6 pt-8 pb-8">
+      <div className="px-6 pt-14 pb-8">
         <h1 className="text-[32px] font-bold text-[#1c1c1e] leading-tight mb-2">
           Let's get started
         </h1>
@@ -77,11 +65,8 @@ export default function OnboardingStep1Screen({ savedNodeId, onContinue }: Onboa
         )}
       </form>
 
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* Bottom area — pinned to bottom */}
-      <div className="px-6 pb-10 space-y-4">
+      {/* Pinned bottom area */}
+      <div className="fixed bottom-0 left-0 right-0 bg-[#F2F2F7] px-6 pb-10 pt-4 space-y-4">
         <p className="text-center text-[13px] text-[#8e8e93] leading-relaxed">
           By continuing, you agree to Neoke's{' '}
           <span className="text-[#5B4FE9] font-medium">Terms and Conditions</span>
