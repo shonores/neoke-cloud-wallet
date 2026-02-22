@@ -1,5 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { useState, useCallback, useEffect } from 'react';
 import { receiveCredential, fetchKeys } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { detectUriType } from '../utils/uriRouter';
@@ -79,8 +78,6 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
   const [receivedCredential, setReceivedCredential] = useState<Credential | null>(null);
   const [error, setError] = useState('');
   const [processing, setProcessing] = useState(false);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const captureFileRef = useRef<HTMLInputElement>(null);
 
   const processOfferUri = useCallback(async (uri: string) => {
     if (!state.token) return;
@@ -144,24 +141,6 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
     if (initialUri) processOfferUri(initialUri);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // ── "Take Photo" — capture a single frame and decode QR from it ──
-  const handleFileCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = '';
-    setIsCapturing(true);
-    try {
-      const scanner = new Html5Qrcode('qr-capture-receive');
-      const result = await scanner.scanFile(file, /* showImage */ false);
-      processOfferUri(result);
-    } catch {
-      setError('No QR code found in the photo. Try again with a clearer image.');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setIsCapturing(false);
-    }
-  };
 
   const handleAccept = async () => {
     setProcessing(true);
@@ -298,17 +277,6 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
   // ── Scan ──
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
-      {/* Hidden elements for photo capture */}
-      <input
-        ref={captureFileRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={handleFileCapture}
-      />
-      <div id="qr-capture-receive" style={{ display: 'none' }} />
-
       <header className="flex items-center gap-4 px-5 pt-12 pb-4 flex-shrink-0">
         <button
           onClick={() => navigate('dashboard')}
@@ -325,8 +293,8 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         </div>
       </header>
 
-      {/* Scrollable content — pb-28 clears the fixed button strip */}
-      <div className="flex-1 overflow-y-auto px-5 pb-28 space-y-4">
+      {/* Scrollable content — pb-28 only needed when manual strip is visible */}
+      <div className={`flex-1 overflow-y-auto px-5 space-y-4 ${showManual ? 'pb-28' : 'pb-6'}`}>
         {/* Camera / Paste toggle */}
         <div className="flex bg-black/5 rounded-xl p-1">
           <button
@@ -368,37 +336,17 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         )}
       </div>
 
-      {/* Fixed bottom button — same pattern as TabBar */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto px-5 pt-3 pb-10 bg-[#F2F2F7] z-40">
-        {showManual ? (
+      {/* Fixed bottom button — only shown in manual (paste URI) mode */}
+      {showManual && (
+        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto px-5 pt-3 pb-10 bg-[#F2F2F7] z-40">
           <PrimaryButton
             onClick={() => { if (manualUri.trim()) processOfferUri(manualUri.trim()); }}
             disabled={!manualUri.trim()}
           >
             Process URI
           </PrimaryButton>
-        ) : (
-          <PrimaryButton
-            onClick={() => captureFileRef.current?.click()}
-            disabled={isCapturing}
-            loading={isCapturing}
-          >
-            {!isCapturing && (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-                <path
-                  d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
-                  stroke="white"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <circle cx="12" cy="13" r="4" stroke="white" strokeWidth="1.7" />
-              </svg>
-            )}
-            {isCapturing ? 'Scanning…' : 'Take Photo of QR Code'}
-          </PrimaryButton>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

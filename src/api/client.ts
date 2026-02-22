@@ -104,6 +104,87 @@ export async function apiKeyAuth(apiKey: string): Promise<AuthResponse> {
 }
 
 // ============================================================
+// Credentials — fetch full document by wallet index
+// ============================================================
+
+/** Fetch the full credential document for a given wallet index. Returns null on any error. */
+async function fetchCredentialDocument(token: string, index: number): Promise<unknown> {
+  try {
+    return await request<unknown>(`/:/credentials/${index}`, { token });
+  } catch {
+    return null;
+  }
+}
+
+/** Extract namespace/value map from a raw credential document response. */
+function extractNamespacesFromDoc(data: unknown): Record<string, Record<string, unknown>> | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const d = data as Record<string, unknown>;
+
+  // Try direct paths
+  const candidates = [
+    d['namespaces'],
+    (d['document'] as Record<string, unknown> | undefined)?.['namespaces'],
+    (d['credential'] as Record<string, unknown> | undefined)?.['namespaces'],
+    (d['mdoc'] as Record<string, unknown> | undefined)?.['namespaces'],
+    (d['data'] as Record<string, unknown> | undefined)?.['namespaces'],
+  ];
+
+  for (const ns of candidates) {
+    if (ns && typeof ns === 'object' && !Array.isArray(ns)) {
+      return ns as Record<string, Record<string, unknown>>;
+    }
+  }
+  return undefined;
+}
+
+/** Extract display metadata (colors, label) from a raw credential document response. */
+function extractDisplayMetadataFromDoc(data: unknown): import('../types').DisplayMetadata | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const d = data as Record<string, unknown>;
+
+  // Find a raw display object from various server response shapes
+  const displayCandidates: unknown[] = [
+    d['displayMetadata'],
+    d['display_metadata'],
+    d['display'],
+    (d['issuerMetadata'] as Record<string, unknown> | undefined)?.['display'],
+    (d['issuer_metadata'] as Record<string, unknown> | undefined)?.['display'],
+    (d['credential'] as Record<string, unknown> | undefined)?.['displayMetadata'],
+    (d['document'] as Record<string, unknown> | undefined)?.['displayMetadata'],
+  ];
+
+  for (const raw of displayCandidates) {
+    if (!raw) continue;
+    // Could be an array (e.g. issuer metadata display list) or a single object
+    const obj = Array.isArray(raw) ? raw[0] : raw;
+    if (!obj || typeof obj !== 'object') continue;
+    const o = obj as Record<string, unknown>;
+
+    const bg =
+      (typeof o['backgroundColor'] === 'string' ? o['backgroundColor'] : undefined) ??
+      (typeof o['background_color'] === 'string' ? o['background_color'] : undefined);
+    const fg =
+      (typeof o['textColor'] === 'string' ? o['textColor'] : undefined) ??
+      (typeof o['text_color'] === 'string' ? o['text_color'] : undefined);
+    const logo =
+      (typeof o['logoUrl'] === 'string' ? o['logoUrl'] : undefined) ??
+      (typeof o['logo_url'] === 'string' ? o['logo_url'] : undefined) ??
+      (typeof (o['logo'] as Record<string, unknown> | undefined)?.['uri'] === 'string'
+        ? (o['logo'] as Record<string, unknown>)['uri'] as string
+        : undefined);
+    const label =
+      (typeof o['label'] === 'string' ? o['label'] : undefined) ??
+      (typeof o['name'] === 'string' ? o['name'] : undefined);
+
+    if (bg || fg || logo || label) {
+      return { backgroundColor: bg, textColor: fg, logoUrl: logo, label };
+    }
+  }
+  return undefined;
+}
+
+// ============================================================
 // Credentials — discovered via a broad VP preview
 // ============================================================
 
@@ -112,6 +193,8 @@ export async function apiKeyAuth(apiKey: string): Promise<AuthResponse> {
  * Instead we create a transient VP request with no doctype filter
  * (matches ALL mso_mdoc credentials) and preview it to get the
  * authoritative list of credentials currently in the wallet.
+ * For each discovered credential we also fetch its full document
+ * to populate namespaces (field values) and display metadata (colors).
  */
 export async function discoverWalletCredentials(token: string): Promise<Credential[]> {
   // 1. Create a broad VP discovery request
@@ -135,29 +218,49 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
   // 2. Preview to get all candidates
   const preview = await previewPresentation(token, vpResp.invocationUrl);
 
-  // 3. Convert candidates to Credential objects.
-  //    _availableClaims stores the "namespace:key" strings from the VP preview so that
-  //    CredentialDetailScreen can render field labels even when the full credential data
-  //    (namespaces / credentialSubject) is not available from the discovery flow alone.
-  const discovered: Credential[] = [];
+  // 3. Collect all unique candidates (dedup by index)
+  type CandEntry = { cand: typeof preview.queries[0]['candidates'][0]; docType: string };
+  const seen = new Set<number>();
+  const entries: CandEntry[] = [];
   for (const query of preview.queries) {
     for (const cand of query.candidates) {
-      const docType = cand.type[0] ?? '';
-      const nowSec = Math.floor(Date.now() / 1000);
-      discovered.push({
-        id: `server-${docType}-${cand.index}`,
-        type: cand.type,
-        issuer: cand.issuer,
-        docType,
-        expirationDate: cand.expiresAt
-          ? new Date(cand.expiresAt * 1000).toISOString()
-          : undefined,
-        status: cand.expiresAt && nowSec > cand.expiresAt ? 'expired' : 'active',
-        // Available claim names from the server (field names only, not values)
-        _availableClaims: cand.claims.available,
-      });
+      if (!seen.has(cand.index)) {
+        seen.add(cand.index);
+        entries.push({ cand, docType: cand.type[0] ?? '' });
+      }
     }
   }
+
+  // 4. Fetch full credential documents in parallel
+  const docs = await Promise.all(entries.map(({ cand }) => fetchCredentialDocument(token, cand.index)));
+
+  // 5. Build Credential objects enriched with namespaces + displayMetadata
+  const nowSec = Math.floor(Date.now() / 1000);
+  const discovered: Credential[] = entries.map(({ cand, docType }, i) => {
+    const doc = docs[i];
+    const namespaces = extractNamespacesFromDoc(doc);
+    const displayMetadata = extractDisplayMetadataFromDoc(doc);
+
+    return {
+      id: `server-${docType}-${cand.index}`,
+      type: cand.type,
+      issuer: cand.issuer,
+      docType,
+      expirationDate: cand.expiresAt
+        ? new Date(cand.expiresAt * 1000).toISOString()
+        : undefined,
+      status: cand.expiresAt && nowSec > cand.expiresAt ? 'expired' : 'active',
+      // Full field values (populated from the credential document)
+      ...(namespaces ? { namespaces } : {}),
+      // Display metadata (colors, label) from the server
+      ...(displayMetadata ? { displayMetadata } : {}),
+      // Available claim names as fallback for field labels
+      _availableClaims: cand.claims.available,
+      // Store wallet index for future operations
+      _credentialIndex: cand.index,
+    };
+  });
+
   return discovered;
 }
 
