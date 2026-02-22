@@ -7,7 +7,54 @@ import type {
   WalletKey,
 } from '../types';
 
+/** Kept for backwards-compat imports; prefer getBaseUrl() for dynamic use. */
 export const BASE_URL = 'https://b2b-poc.id-node.neoke.com';
+
+// Module-level mutable base URL — updated after node selection.
+let _baseUrl = BASE_URL;
+
+export function setBaseUrl(url: string): void {
+  _baseUrl = url.replace(/\/$/, '');
+}
+
+export function getBaseUrl(): string {
+  return _baseUrl;
+}
+
+/**
+ * Convert a user-supplied node identifier to its full API base URL.
+ * Accepts:
+ *   "b2b-poc"                  → https://b2b-poc.id-node.neoke.com
+ *   "b2b-poc.id-node.neoke.com"→ https://b2b-poc.id-node.neoke.com
+ *   "https://…"                → used as-is (strip trailing slash)
+ */
+export function nodeIdentifierToUrl(identifier: string): string {
+  const id = identifier.trim();
+  if (id.startsWith('http')) return id.replace(/\/$/, '');
+  if (id.includes('.'))       return `https://${id}`;
+  return `https://${id}.id-node.neoke.com`;
+}
+
+/**
+ * Validate a node identifier by checking network reachability.
+ * Throws ApiError if the node cannot be reached.
+ * Returns the resolved base URL on success.
+ */
+export async function validateNode(identifier: string): Promise<string> {
+  const baseUrl = nodeIdentifierToUrl(identifier);
+  try {
+    // Any HTTP response (even 401/422) means the node exists and is reachable
+    await fetch(`${baseUrl}/:/auth/authn`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    return baseUrl;
+  } catch {
+    throw new ApiError(
+      `Cannot reach "${identifier}". Please check the identifier and your network connection.`
+    );
+  }
+}
 
 // ============================================================
 // Error handling
@@ -63,7 +110,7 @@ async function request<T>(
 
   let response: Response;
   try {
-    response = await fetch(`${BASE_URL}${path}`, {
+    response = await fetch(`${_baseUrl}${path}`, {
       ...fetchOptions,
       headers,
     });
@@ -96,11 +143,20 @@ async function request<T>(
 // ============================================================
 // Auth
 // ============================================================
-export async function apiKeyAuth(apiKey: string): Promise<AuthResponse> {
-  return request<AuthResponse>('/:/auth/authn', {
-    method: 'POST',
-    apiKey,
-  });
+/**
+ * Authenticate with an API key.
+ * @param nodeBaseUrl  When provided (during onboarding step 2), temporarily
+ *                     overrides the current base URL for this one call so the
+ *                     token can be obtained before the context has been updated.
+ */
+export async function apiKeyAuth(apiKey: string, nodeBaseUrl?: string): Promise<AuthResponse> {
+  const prev = _baseUrl;
+  if (nodeBaseUrl) _baseUrl = nodeBaseUrl.replace(/\/$/, '');
+  try {
+    return await request<AuthResponse>('/:/auth/authn', { method: 'POST', apiKey });
+  } finally {
+    if (nodeBaseUrl) _baseUrl = prev;
+  }
 }
 
 // ============================================================

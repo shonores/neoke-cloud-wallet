@@ -1,59 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { apiKeyAuth } from './api/client';
-import { API_KEY } from './config';
 import DashboardScreen from './screens/DashboardScreen';
 import CredentialDetailScreen from './screens/CredentialDetailScreen';
 import ReceiveScreen from './screens/ReceiveScreen';
 import PresentScreen from './screens/PresentScreen';
 import AccountScreen from './screens/AccountScreen';
+import OnboardingStep1Screen from './screens/OnboardingStep1Screen';
+import OnboardingStep2Screen from './screens/OnboardingStep2Screen';
 import ReAuthModal from './components/ReAuthModal';
-import LoadingSpinner from './components/LoadingSpinner';
 import type { ViewName, Credential } from './types';
-
-// ============================================================
-// Splash screen while auto-authenticating
-// ============================================================
-function SplashScreen({ error, onRetry }: { error?: string; onRetry: () => void }) {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 min-h-screen bg-[#F2F2F7]">
-      <div className="text-center space-y-5">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl shadow-xl" style={{ background: 'linear-gradient(135deg, #5B4FE9 0%, #7c3aed 100%)' }}>
-          {/* Wallet / credential card line icon */}
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <rect x="2" y="5" width="20" height="14" rx="2.5" stroke="white" strokeWidth="1.6" />
-            <path d="M2 10h20" stroke="white" strokeWidth="1.4" />
-            <rect x="14" y="13" width="4" height="2.5" rx="1" fill="white" />
-          </svg>
-        </div>
-        <div>
-          <h1 className="text-[22px] font-bold text-[#1c1c1e]">Neoke wallet</h1>
-          <p className="text-[15px] text-[#8e8e93] mt-1">Self-Sovereign Identity</p>
-        </div>
-        {!error ? (
-          <div className="flex items-center gap-2 text-[#8e8e93] text-[15px]">
-            <LoadingSpinner size="sm" />
-            <span>Connecting…</span>
-          </div>
-        ) : (
-          <div className="space-y-3 max-w-xs">
-            <p className="text-red-600 text-[14px] bg-red-50 border border-red-200 rounded-2xl px-4 py-3">
-              {error}
-            </p>
-            <button
-              onClick={onRetry}
-              className="w-full text-white font-semibold py-4 rounded-full text-[17px] transition-opacity min-h-[44px]"
-              style={{ backgroundColor: '#5B4FE9' }}
-            >
-              Retry
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ============================================================
 // Bottom tab bar
@@ -65,8 +21,8 @@ function TabBar({
   currentView: ViewName;
   onNavigate: (view: ViewName) => void;
 }) {
-  const homeActive = currentView === 'dashboard';
-  const scanActive = currentView === 'receive' || currentView === 'present';
+  const homeActive    = currentView === 'dashboard';
+  const scanActive    = currentView === 'receive' || currentView === 'present';
   const accountActive = currentView === 'account';
 
   return (
@@ -101,12 +57,12 @@ function TabBar({
         aria-label="Scan QR Code"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <rect x="3" y="3" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.7" fill={scanActive ? 'currentColor' : 'none'} fillOpacity={scanActive ? 0.12 : 0} />
-          <rect x="13" y="3" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.7" fill={scanActive ? 'currentColor' : 'none'} fillOpacity={scanActive ? 0.12 : 0} />
-          <rect x="3" y="13" width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.7" fill={scanActive ? 'currentColor' : 'none'} fillOpacity={scanActive ? 0.12 : 0} />
-          <rect x="13" y="13" width="3.5" height="3.5" rx="0.5" fill="currentColor" />
-          <rect x="17.5" y="13" width="3.5" height="3.5" rx="0.5" fill="currentColor" />
-          <rect x="13" y="17.5" width="3.5" height="3.5" rx="0.5" fill="currentColor" />
+          <rect x="3"   y="3"   width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.7" fill={scanActive ? 'currentColor' : 'none'} fillOpacity={scanActive ? 0.12 : 0} />
+          <rect x="13"  y="3"   width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.7" fill={scanActive ? 'currentColor' : 'none'} fillOpacity={scanActive ? 0.12 : 0} />
+          <rect x="3"   y="13"  width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.7" fill={scanActive ? 'currentColor' : 'none'} fillOpacity={scanActive ? 0.12 : 0} />
+          <rect x="13"   y="13"   width="3.5" height="3.5" rx="0.5" fill="currentColor" />
+          <rect x="17.5" y="13"   width="3.5" height="3.5" rx="0.5" fill="currentColor" />
+          <rect x="13"   y="17.5" width="3.5" height="3.5" rx="0.5" fill="currentColor" />
           <rect x="17.5" y="17.5" width="3.5" height="3.5" rx="0.5" fill="currentColor" />
         </svg>
         <span className="text-[10px] font-medium">Scan QR Code</span>
@@ -120,9 +76,7 @@ function TabBar({
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
           <circle
-            cx="12"
-            cy="8"
-            r="4"
+            cx="12" cy="8" r="4"
             stroke="currentColor"
             strokeWidth="1.7"
             fill={accountActive ? 'currentColor' : 'none'}
@@ -145,32 +99,23 @@ function TabBar({
 // Inner app (needs auth context)
 // ============================================================
 function AppInner() {
-  const { state, setToken } = useAuth();
-  const [authError, setAuthError] = useState('');
-  const [authAttempt, setAuthAttempt] = useState(0);
+  const { state, setNode, setToken } = useAuth();
 
-  const [currentView, setCurrentView] = useState<ViewName>('dashboard');
+  // Onboarding step (used when not authenticated)
+  const [onboardingStep, setOnboardingStep] = useState<1 | 2>(1);
+  const [pendingNodeId,  setPendingNodeId]  = useState('');
+  const [pendingBaseUrl, setPendingBaseUrl] = useState('');
+
+  // Read saved node from localStorage to pre-fill step 1
+  const [savedNodeId] = useState<string>(() => {
+    try { return localStorage.getItem('neoke_node_id') ?? ''; } catch { return ''; }
+  });
+
+  // Authenticated navigation state
+  const [currentView,        setCurrentView]        = useState<ViewName>('dashboard');
   const [selectedCredential, setSelectedCredential] = useState<Credential | null>(null);
-  const [pendingUri, setPendingUri] = useState<string | undefined>();
-  const [refreshSignal, setRefreshSignal] = useState(0);
-
-  // Auto-authenticate with hardcoded API key
-  useEffect(() => {
-    let cancelled = false;
-    setAuthError('');
-    apiKeyAuth(API_KEY)
-      .then(({ token, expiresAt }) => {
-        if (!cancelled) setToken(token, expiresAt);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setAuthError(
-            err instanceof Error ? err.message : 'Unable to connect to the wallet server.'
-          );
-        }
-      });
-    return () => { cancelled = true; };
-  }, [authAttempt, setToken]);
+  const [pendingUri,         setPendingUri]          = useState<string | undefined>();
+  const [refreshSignal,      setRefreshSignal]       = useState(0);
 
   const navigate = (
     view: ViewName,
@@ -181,22 +126,51 @@ function AppInner() {
     setCurrentView(view);
   };
 
-  if (!state.token) {
+  // ── Session expired → re-auth sheet ───────────────────────────────────────
+  if (state.sessionExpired) {
     return (
-      <SplashScreen
-        error={authError}
-        onRetry={() => setAuthAttempt((n) => n + 1)}
-      />
+      <div className="w-full max-w-lg mx-auto min-h-screen bg-[#F2F2F7]">
+        <ReAuthModal />
+      </div>
     );
   }
 
-  // Tab bar shown on top-level views only
+  // ── Not authenticated → two-step onboarding ───────────────────────────────
+  if (!state.token) {
+    if (onboardingStep === 2) {
+      return (
+        <div className="w-full max-w-lg mx-auto">
+          <OnboardingStep2Screen
+            nodeIdentifier={pendingNodeId}
+            nodeBaseUrl={pendingBaseUrl}
+            onBack={() => setOnboardingStep(1)}
+            onSuccess={(token, expiresAt) => {
+              setNode(pendingNodeId, pendingBaseUrl);
+              setToken(token, expiresAt);
+            }}
+          />
+        </div>
+      );
+    }
+    return (
+      <div className="w-full max-w-lg mx-auto">
+        <OnboardingStep1Screen
+          savedNodeId={savedNodeId}
+          onContinue={(nodeId, baseUrl) => {
+            setPendingNodeId(nodeId);
+            setPendingBaseUrl(baseUrl);
+            setOnboardingStep(2);
+          }}
+        />
+      </div>
+    );
+  }
+
+  // ── Authenticated — main wallet ────────────────────────────────────────────
   const showTabBar = currentView === 'dashboard' || currentView === 'account';
 
   return (
     <div className="flex flex-col min-h-screen bg-[#F2F2F7] w-full max-w-lg mx-auto">
-      {state.sessionExpired && <ReAuthModal />}
-
       <AnimatePresence mode="wait">
         {currentView === 'dashboard' && (
           <DashboardScreen

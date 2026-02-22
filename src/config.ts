@@ -1,1 +1,2 @@
-export const API_KEY = 'dk_Uz4O7Vty17NZot4hdu5RIegRJnQUkeF3nmjNnXGbSOE';
+// Authentication is now handled via the two-step onboarding flow.
+// API keys are entered by the user and never stored in source code.

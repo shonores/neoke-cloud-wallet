@@ -1,49 +1,104 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { apiKeyAuth } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { API_KEY } from '../config';
 import LoadingSpinner from './LoadingSpinner';
-import ErrorMessage from './ErrorMessage';
 
+/**
+ * Bottom-sheet shown when the server token expires mid-session.
+ * The user only needs to re-enter their API key — the node is remembered.
+ */
 export default function ReAuthModal() {
-  const { setToken } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { state, setToken, logout } = useAuth();
+  const [apiKey,  setApiKey]  = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState('');
 
-  const reconnect = () => {
+  let nodeHost = state.nodeIdentifier ?? '';
+  try {
+    if (state.baseUrl) nodeHost = new URL(state.baseUrl).host;
+  } catch { /* use nodeIdentifier */ }
+
+  const handleReconnect = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const key = apiKey.trim();
+    if (!key) return;
+
     setLoading(true);
     setError('');
-    apiKeyAuth(API_KEY)
-      .then(({ token, expiresAt }) => setToken(token, expiresAt))
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Failed to reconnect.');
-        setLoading(false);
-      });
+    try {
+      const { token, expiresAt } = await apiKeyAuth(key, state.baseUrl ?? undefined);
+      setToken(token, expiresAt);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Authentication failed. Please check your API key.'
+      );
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { reconnect(); }, []);
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-[#1a1a1a] rounded-2xl border border-white/10 shadow-2xl p-6 text-center">
-        <div className="text-3xl mb-3">🔐</div>
-        <h2 className="text-lg font-bold text-white mb-1">Session Expired</h2>
-        {loading ? (
-          <div className="flex items-center justify-center gap-2 text-white/50 text-sm mt-4">
-            <LoadingSpinner size="sm" />
-            <span>Reconnecting…</span>
-          </div>
-        ) : error ? (
-          <div className="space-y-3 mt-4">
-            <ErrorMessage message={error} />
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm">
+      <div className="w-full max-w-lg bg-white rounded-t-3xl shadow-2xl">
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1">
+          <div className="w-9 h-1 bg-[#c7c7cc] rounded-full" />
+        </div>
+
+        <div className="px-6 pt-4 pb-10">
+          <h2 className="text-[22px] font-bold text-[#1c1c1e] mb-1">Session expired</h2>
+          <p className="text-[15px] text-[#8e8e93] mb-5">
+            Enter your API key to continue.
+          </p>
+
+          {/* Node indicator */}
+          {nodeHost && (
+            <div className="inline-flex items-center gap-2 bg-black/5 px-3 py-1.5 rounded-full mb-4">
+              <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
+              <span className="text-[13px] font-medium text-[#1c1c1e]">{nodeHost}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleReconnect} className="space-y-3">
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => { setApiKey(e.target.value); setError(''); }}
+              placeholder="API Key"
+              className="w-full bg-[#F2F2F7] border border-black/8 rounded-2xl px-4 py-4 text-[16px] text-[#1c1c1e] placeholder-[#aeaeb2] focus:outline-none focus:border-[#5B4FE9] transition-colors"
+              autoComplete="off"
+              disabled={loading}
+            />
+
+            {error && (
+              <p className="text-[14px] text-red-500">{error}</p>
+            )}
+
             <button
-              onClick={reconnect}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl text-sm transition-colors min-h-[44px]"
+              type="submit"
+              disabled={loading || !apiKey.trim()}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-full text-white font-semibold text-[17px] transition-opacity disabled:opacity-50 min-h-[56px]"
+              style={{ backgroundColor: '#5B4FE9' }}
             >
-              Retry
+              {loading ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Reconnecting…</span>
+                </>
+              ) : (
+                'Reconnect'
+              )}
             </button>
-          </div>
-        ) : null}
+          </form>
+
+          <button
+            onClick={logout}
+            className="w-full text-center text-[15px] text-[#8e8e93] mt-3 py-2"
+          >
+            Sign out instead
+          </button>
+        </div>
       </div>
     </div>
   );

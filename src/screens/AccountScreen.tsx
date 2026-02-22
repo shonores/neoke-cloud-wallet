@@ -1,6 +1,5 @@
 import { clearLocalCredentials } from '../store/localCredentials';
 import { useAuth } from '../context/AuthContext';
-import { API_KEY } from '../config';
 import type { ViewName } from '../types';
 
 interface AccountScreenProps {
@@ -8,14 +7,24 @@ interface AccountScreenProps {
 }
 
 export default function AccountScreen({ navigate }: AccountScreenProps) {
-  const { clearToken } = useAuth();
+  const { state, logout } = useAuth();
+
+  const nodeHost = (() => {
+    if (state.baseUrl) {
+      try { return new URL(state.baseUrl).host; } catch { /* */ }
+    }
+    return state.nodeIdentifier ?? '—';
+  })();
 
   const handleClearCredentials = () => {
     clearLocalCredentials();
     navigate('dashboard');
   };
 
-  const maskedKey = API_KEY.slice(0, 12) + '••••••••••••••••••••••••';
+  const handleSignOut = () => {
+    clearLocalCredentials();
+    logout();
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-[#F2F2F7] min-h-screen">
@@ -24,24 +33,29 @@ export default function AccountScreen({ navigate }: AccountScreenProps) {
       </header>
 
       <main className="flex-1 px-5 pb-28 space-y-4">
-        {/* Connection info */}
+        {/* Node info */}
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
           <div className="px-4 py-2.5 border-b border-black/5">
             <p className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide">Connected Node</p>
           </div>
-          <div className="px-4 py-3.5">
-            <p className="text-[14px] font-mono text-[#1c1c1e]">b2b-poc.id-node.neoke.com</p>
-            <p className="text-[12px] text-[#8e8e93] mt-0.5">HTTPS · Secure connection</p>
+          <div className="px-4 py-3.5 flex items-center gap-2">
+            <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
+            <div>
+              <p className="text-[14px] font-mono text-[#1c1c1e]">{nodeHost}</p>
+              <p className="text-[12px] text-[#8e8e93] mt-0.5">HTTPS · Secure connection</p>
+            </div>
           </div>
         </div>
 
-        {/* API Key */}
+        {/* Session info */}
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
           <div className="px-4 py-2.5 border-b border-black/5">
-            <p className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide">API Key</p>
+            <p className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide">Session</p>
           </div>
           <div className="px-4 py-3.5">
-            <p className="text-[13px] font-mono text-[#8e8e93] break-all">{maskedKey}</p>
+            <p className="text-[13px] text-[#8e8e93]">
+              Session refreshes automatically while you're active. Expires after 7 days of inactivity.
+            </p>
           </div>
         </div>
 
@@ -57,10 +71,10 @@ export default function AccountScreen({ navigate }: AccountScreenProps) {
             </svg>
           </button>
           <button
-            onClick={clearToken}
+            onClick={handleSignOut}
             className="w-full flex items-center justify-between px-4 py-4 text-left active:bg-black/3 transition-colors"
           >
-            <span className="text-[15px] text-red-600 font-medium">Reset session</span>
+            <span className="text-[15px] text-red-600 font-semibold">Sign out</span>
             <svg width="7" height="12" viewBox="0 0 7 12" fill="none" aria-hidden>
               <path d="M1 1l5 5-5 5" stroke="#c7c7cc" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
