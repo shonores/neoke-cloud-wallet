@@ -31,13 +31,17 @@ export function clearLocalCredentials(): void {
  * Merge server-discovered credentials (authoritative for existence/metadata)
  * with locally stored credentials (richer field data from the receive flow).
  * Writes the merged list back to localStorage so it stays in sync.
+ *
+ * Guard: if serverCreds is empty (discovery returned nothing), we keep the
+ * existing local store untouched rather than wiping it — the server may have
+ * returned an empty list due to a transient issue, not because credentials
+ * were deleted.
  */
 export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential[] {
   const local = getLocalCredentials();
-  console.log('[neoke] local store →', local.map((c) => ({
-    id: c.id, docType: c.docType, hasNamespaces: !!c.namespaces,
-    hasDisplayMeta: !!c.displayMetadata,
-  })));
+
+  // Don't overwrite local data when discovery returns nothing
+  if (serverCreds.length === 0) return local;
 
   const merged = serverCreds.map((serverCred) => {
     // Match by docType or overlapping type strings
@@ -50,8 +54,6 @@ export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential
     );
 
     if (localMatch) {
-      console.log('[neoke] merge match', serverCred.id, '← local', localMatch.id,
-        'localNS?', !!localMatch.namespaces, 'serverNS?', !!serverCred.namespaces);
       return {
         ...localMatch,
         id: serverCred.id,
@@ -65,11 +67,10 @@ export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential
         displayMetadata: serverCred.displayMetadata ?? localMatch.displayMetadata,
       };
     }
-    console.log('[neoke] no local match for', serverCred.id);
     return serverCred;
   });
 
-  // Write back so localStorage mirrors the server exactly
+  // Write back so localStorage mirrors the server
   localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
   return merged;
 }

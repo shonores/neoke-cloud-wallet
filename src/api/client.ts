@@ -224,7 +224,7 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
   const discovered: Credential[] = [];
 
   for (const query of (preview.queries ?? [])) {
-    for (const cand of query.candidates) {
+    for (const cand of (query.candidates ?? [])) {
       if (seen.has(cand.index)) continue;
       seen.add(cand.index);
       const docType = cand.type[0] ?? '';
@@ -237,7 +237,7 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
           ? new Date(cand.expiresAt * 1000).toISOString()
           : undefined,
         status: cand.expiresAt && nowSec > cand.expiresAt ? 'expired' : 'active',
-        _availableClaims: cand.claims.available,
+        _availableClaims: cand.claims?.available ?? [],
         _credentialIndex: cand.index,
       });
     }

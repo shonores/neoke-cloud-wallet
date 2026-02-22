@@ -152,7 +152,7 @@ export function getDocTypeDescription(docType?: string): string {
 export function getCredentialDescription(credential: Credential): string {
   if (credential.displayMetadata?.description) return credential.displayMetadata.description;
 
-  // issuing_authority from any namespace → show as description on card
+  // issuing_authority from any namespace → ideal subtitle for the card
   if (credential.namespaces) {
     for (const ns of Object.values(credential.namespaces)) {
       if (
@@ -167,6 +167,16 @@ export function getCredentialDescription(credential: Credential): string {
   }
   if (typeof credential.credentialSubject?.issuing_authority === 'string') {
     return credential.credentialSubject.issuing_authority;
+  }
+
+  // Use issuer as card subtitle when no richer info is available.
+  // Strip X.509 CN= prefix; skip bare DIDs (too long / not human-readable).
+  if (credential.issuer) {
+    const issuer = credential.issuer;
+    if (issuer.startsWith('CN=')) return issuer.slice(3).trim();
+    if (!issuer.startsWith('did:')) {
+      return issuer.length > 50 ? issuer.slice(0, 50) + '…' : issuer;
+    }
   }
 
   return getDocTypeDescription(credential.docType);
