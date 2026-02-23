@@ -22,9 +22,9 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
 
   const token = state.token;
 
-  const fetchCredentials = useCallback(async () => {
+  const fetchCredentials = useCallback(async (showSpinner = true) => {
     if (!token) return;
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     setError('');
     setUsingLocalFallback(false);
 
@@ -55,16 +55,15 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
     fetchCredentials();
   }, [fetchCredentials, refreshSignal]);
 
-  // Poll every 15 s — keeps the dashboard in sync with server-side changes
-  // (new credentials, deletions, status updates) without any manual action.
+  // Poll every 15 s — silent background refresh, no spinner.
   useEffect(() => {
-    const id = setInterval(fetchCredentials, 15_000);
+    const id = setInterval(() => fetchCredentials(false), 15_000);
     return () => clearInterval(id);
   }, [fetchCredentials]);
 
-  // Also re-fetch immediately when the tab comes back into view.
+  // Also re-fetch silently when the tab comes back into view.
   useEffect(() => {
-    const onVisible = () => { if (!document.hidden) fetchCredentials(); };
+    const onVisible = () => { if (!document.hidden) fetchCredentials(false); };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [fetchCredentials]);
