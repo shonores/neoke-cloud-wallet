@@ -385,17 +385,24 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
 
 /**
  * Delete a credential from the server wallet.
- * Silently swallows errors (the credential is removed locally regardless).
+ * IDs may arrive as "scope:vc:<hash>" — the REST endpoint expects only
+ * the final hash segment (e.g. /:/credentials/stored/<hash>).
  */
 export async function deleteCredential(token: string, credentialId: string): Promise<void> {
+  // Take the last colon-delimited segment so "b2b-poc:vc:abc123" → "abc123"
+  const pathId = credentialId.includes(':')
+    ? credentialId.split(':').pop()!
+    : credentialId;
+  console.log('[neoke] deleteCredential id:', credentialId, '→ path:', pathId);
   try {
-    await request<void>(`/:/credentials/stored/${encodeURIComponent(credentialId)}`, {
+    await request<void>(`/:/credentials/stored/${pathId}`, {
       method: 'DELETE',
       token,
     });
-  } catch {
-    // Server may not support this endpoint or credential may already be gone;
-    // local removal proceeds regardless.
+    console.log('[neoke] deleteCredential success');
+  } catch (err) {
+    console.error('[neoke] deleteCredential failed:', err);
+    // Local removal proceeds regardless
   }
 }
 

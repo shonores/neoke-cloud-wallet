@@ -126,6 +126,11 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
         return;
       }
 
+      // Ensure docType is set (needed for card colour lookup via DOC_TYPE_COLORS)
+      if (!cred.docType && Array.isArray(cred.type) && cred.type.length > 0) {
+        cred = { ...cred, docType: cred.type[0] as string };
+      }
+
       // Enrich with namespaces/displayMetadata extracted from the full response
       // (some server versions nest these outside the credential object)
       if (!cred.namespaces) {
@@ -140,7 +145,6 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
       console.log('[neoke] extracted cred →', {
         id: cred.id, docType: cred.docType,
         hasNamespaces: !!cred.namespaces, hasDisplayMeta: !!cred.displayMetadata,
-        namespaces: cred.namespaces,
       });
 
       saveLocalCredential(cred);
