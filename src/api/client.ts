@@ -239,16 +239,92 @@ export function extractDisplayMetadataFromDoc(data: unknown): import('../types')
 }
 
 // ============================================================
+// Credentials — /:/credentials/stored (primary strategy)
+// ============================================================
+
+interface StoredCredentialRaw {
+  id: string;
+  type: string[];
+  issuer: string;
+  issuedAt?: number;
+  expiresAt?: number;
+  metadata?: {
+    credentialDisplay?: Array<{
+      name?: string;
+      locale?: string;
+      description?: string;
+      background_color?: string;
+      text_color?: string;
+      logo?: { uri?: string };
+    }>;
+    nameSpaces?: Record<string, Record<string, unknown>>;
+  };
+}
+
+/**
+ * Fetch stored credentials from the server — returns full credential data
+ * including field values (nameSpaces) and display metadata.
+ */
+export async function fetchStoredCredentials(token: string): Promise<Credential[]> {
+  const resp = await request<{ credentials?: StoredCredentialRaw[] }>(
+    '/:/credentials/stored',
+    { token }
+  );
+  const raw = resp.credentials ?? [];
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  return raw.map((item) => {
+    const display =
+      item.metadata?.credentialDisplay?.find((d) => d.locale === 'en') ??
+      item.metadata?.credentialDisplay?.[0];
+
+    const docType = item.type[0] ?? '';
+
+    return {
+      id: item.id,
+      type: item.type,
+      docType,
+      issuer: item.issuer,
+      issuanceDate: item.issuedAt
+        ? new Date(item.issuedAt * 1000).toISOString()
+        : undefined,
+      expirationDate: item.expiresAt
+        ? new Date(item.expiresAt * 1000).toISOString()
+        : undefined,
+      status: item.expiresAt && nowSec > item.expiresAt ? 'expired' : 'active',
+      namespaces: item.metadata?.nameSpaces,
+      displayMetadata: display
+        ? {
+            backgroundColor: display.background_color,
+            textColor: display.text_color,
+            label: display.name,
+            description: display.description,
+            logoUrl: display.logo?.uri,
+          }
+        : undefined,
+    } as Credential;
+  });
+}
+
+// ============================================================
 // Credentials — discovered via a broad VP preview
 // ============================================================
 
 /**
- * Discover wallet credentials using a broad VP preview request.
- * The server's VP preview endpoint returns candidate metadata (type, issuer, claims list)
- * but NOT credential field values — those are only available after OID4VCI receive.
- * This function returns lightweight stubs that get merged with any richer local copies.
+ * Discover wallet credentials.
+ * Strategy 1: GET /:/credentials/stored — full data including field values.
+ * Strategy 2 (fallback): VP preview — lightweight stubs, no field values.
  */
 export async function discoverWalletCredentials(token: string): Promise<Credential[]> {
+  // Strategy 1: stored credentials endpoint (authoritative, includes field values)
+  try {
+    const stored = await fetchStoredCredentials(token);
+    if (stored.length > 0) return stored;
+  } catch {
+    // fall through to VP preview discovery
+  }
+
+  // Strategy 2: VP preview (stubs only — no field values)
   // 1. Create a broad VP discovery request
   const vpResp = await request<{ invocationUrl: string }>('/:/auth/siop/request', {
     method: 'POST',
