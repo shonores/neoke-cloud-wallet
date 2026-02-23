@@ -164,15 +164,15 @@ interface PlainFieldRowProps {
 
 function PlainFieldRow({ label, value }: PlainFieldRowProps) {
   const lowerLabel = label.toLowerCase();
+  // A real photo is at least ~1 KB of base64 (≈1366 chars); anything shorter
+  // is a 1×1 placeholder or test stub — skip the image slot entirely.
   const isImage =
     (lowerLabel.includes('photo') || lowerLabel.includes('portrait') || lowerLabel.includes('picture')) &&
     typeof value === 'string' &&
-    value.length > 50;
+    value.length > 1000;
 
   if (isImage) {
     const raw = String(value);
-    // Log first 80 chars so we can see the format in DevTools console
-    console.log(`[neoke] portrait raw (${raw.length} chars):`, raw.slice(0, 80));
 
     let src: string;
     if (raw.startsWith('data:')) {
@@ -184,7 +184,6 @@ function PlainFieldRow({ label, value }: PlainFieldRowProps) {
     } else {
       src = `data:image/jpeg;base64,${raw}`;  // JPEG (default)
     }
-    console.log('[neoke] portrait src prefix:', src.slice(0, 40));
     return (
       <div className="py-3">
         <p className="text-xs text-[#8e8e93] mb-1.5">{label}</p>
