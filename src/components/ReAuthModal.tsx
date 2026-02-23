@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { apiKeyAuth } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import LoadingSpinner from './LoadingSpinner';
+import NodeStatusChip from './NodeStatusChip';
 
 /**
  * Bottom-sheet shown when the server token expires mid-session.
@@ -53,12 +54,7 @@ export default function ReAuthModal() {
           </p>
 
           {/* Node indicator */}
-          {nodeHost && (
-            <div className="inline-flex items-center gap-2 bg-black/5 px-3 py-1.5 rounded-full mb-4">
-              <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
-              <span className="text-[13px] font-medium text-[#1c1c1e]">{nodeHost}</span>
-            </div>
-          )}
+          {nodeHost && <NodeStatusChip host={nodeHost} className="mb-4" />}
 
           <form onSubmit={handleReconnect} className="space-y-3">
             <input

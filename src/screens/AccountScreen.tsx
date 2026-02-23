@@ -41,8 +41,8 @@ export default function AccountScreen({ navigate }: AccountScreenProps) {
           <div className="px-4 py-3.5 flex items-center gap-2">
             <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
             <div>
-              <p className="text-[14px] font-mono text-[#1c1c1e]">{nodeHost}</p>
-              <p className="text-[12px] text-[#8e8e93] mt-0.5">HTTPS · Secure connection</p>
+              <p className="text-[15px] font-mono text-[#1c1c1e]">{nodeHost}</p>
+              <p className="text-[13px] text-[#8e8e93] mt-0.5">HTTPS · Secure connection</p>
             </div>
           </div>
         </div>
@@ -53,7 +53,7 @@ export default function AccountScreen({ navigate }: AccountScreenProps) {
             <p className="text-[11px] text-[#8e8e93] font-semibold uppercase tracking-wide">Session</p>
           </div>
           <div className="px-4 py-3.5">
-            <p className="text-[13px] text-[#8e8e93]">
+            <p className="text-[14px] text-[#8e8e93]">
               Session refreshes automatically while you're active. Expires after 7 days of inactivity.
             </p>
           </div>
@@ -91,7 +91,7 @@ export default function AccountScreen({ navigate }: AccountScreenProps) {
                 <rect x="14" y="13" width="4" height="2.5" rx="1" fill="white" />
               </svg>
             </div>
-            <span className="text-[14px] font-bold text-[#1c1c1e]">Neoke Cloud Wallet</span>
+            <span className="text-[15px] font-bold text-[#1c1c1e]">Neoke Cloud Wallet</span>
           </div>
         </div>
       </main>

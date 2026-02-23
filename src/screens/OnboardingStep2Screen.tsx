@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { apiKeyAuth } from '../api/client';
 import PrimaryButton from '../components/PrimaryButton';
+import NodeStatusChip from '../components/NodeStatusChip';
 
 interface OnboardingStep2Props {
   nodeIdentifier: string;
@@ -76,11 +77,7 @@ export default function OnboardingStep2Screen({
 
       {/* Node indicator chip */}
       <div className="px-6 mb-3">
-        <div className="inline-flex items-center gap-2 bg-black/5 px-3 py-1.5 rounded-full">
-          <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0" />
-          <span className="text-[13px] font-medium text-[#1c1c1e]">{nodeHost}</span>
-          <span className="text-[11px] text-[#8e8e93]">· verified</span>
-        </div>
+        <NodeStatusChip host={nodeHost} label="· verified" />
       </div>
 
       {/* Form */}
