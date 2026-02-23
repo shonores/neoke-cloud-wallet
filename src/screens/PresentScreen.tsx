@@ -14,7 +14,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import type { Credential, VPPreviewResponse, ViewName } from '../types';
 
-type Stage = 'scan' | 'loading' | 'consent' | 'presenting' | 'success' | 'error';
+type Stage = 'scan' | 'loading' | 'select' | 'consent' | 'presenting' | 'success' | 'error';
 
 interface PresentScreenProps {
   navigate: (view: ViewName, extra?: { selectedCredential?: Credential; pendingUri?: string }) => void;
@@ -79,6 +79,7 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
   const [preview, setPreview] = useState<VPPreviewResponse | null>(null);
   const [error, setError] = useState('');
   const [skippedX509, setSkippedX509] = useState(false);
+  const [selections, setSelections] = useState<Record<string, number>>({});
   const [successResult, setSuccessResult] = useState<{ redirectUri?: string; skippedX509?: boolean } | null>(null);
 
   const processPresentUri = useCallback(async (uri: string) => {
@@ -99,6 +100,7 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
     setStage('loading');
     setError('');
     setSkippedX509(false);
+    setSelections({});
     setCurrentRequestUri(trimmed);
 
     // Helper: validate and apply the preview response
@@ -111,9 +113,17 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
         setStage('error');
         return false;
       }
+      // Pre-fill selections with the first candidate for each query
+      const initialSelections: Record<string, number> = {};
+      for (const q of data.queries) {
+        if (q.candidates?.length > 0) initialSelections[q.queryId] = q.candidates[0].index;
+      }
+      setSelections(initialSelections);
       setSkippedX509(usedSkip);
       setPreview(data);
-      setStage('consent');
+      // Go to selection screen only when at least one query has multiple candidates
+      const needsSelection = data.queries.some((q) => (q.candidates?.length ?? 0) > 1);
+      setStage(needsSelection ? 'select' : 'consent');
       return true;
     };
 
@@ -152,8 +162,9 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
   const handleShare = async () => {
     if (!state.token || !currentRequestUri) return;
     setStage('presenting');
+    const activeSelections = Object.keys(selections).length > 0 ? selections : undefined;
     try {
-      const result = await respondPresentation(state.token, currentRequestUri, undefined, skippedX509);
+      const result = await respondPresentation(state.token, currentRequestUri, activeSelections, skippedX509);
       setSuccessResult({ redirectUri: result.redirectUri, skippedX509 });
       setStage('success');
     } catch (firstErr) {
@@ -164,7 +175,7 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
       // If we haven't already skipped X.509, silently retry without chain validation
       if (!skippedX509) {
         try {
-          const result = await respondPresentation(state.token, currentRequestUri, undefined, true);
+          const result = await respondPresentation(state.token, currentRequestUri, activeSelections, true);
           setSkippedX509(true);
           setSuccessResult({ redirectUri: result.redirectUri, skippedX509: true });
           setStage('success');
@@ -194,6 +205,136 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
           <p className="text-[#8e8e93] text-[15px]">
             {stage === 'loading' ? 'Processing request…' : 'Sharing credential…'}
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Select (multiple candidates for one or more queries) ──
+  if (stage === 'select' && preview) {
+    const localCreds = getLocalCredentials();
+    const localDisplayFor = (types: string[]) =>
+      localCreds.find((lc) => types.some((t) => lc.type?.includes(t)))?.displayMetadata;
+
+    // Only show queries that have more than one candidate — single-candidate queries
+    // are auto-selected and will appear on the consent screen.
+    const ambiguousQueries = preview.queries.filter((q) => (q.candidates?.length ?? 0) > 1);
+    const multipleGroups = ambiguousQueries.length > 1;
+
+    return (
+      <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
+        {/* iOS-style drag handle */}
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-9 h-1 rounded-full bg-[#c7c7cc]" />
+        </div>
+
+        {/* Close button */}
+        <div className="px-5 pt-2 pb-4 flex-shrink-0">
+          <button
+            onClick={() => navigate('dashboard')}
+            className="w-9 h-9 rounded-full bg-black/8 flex items-center justify-center text-[#1c1c1e] hover:bg-black/12 transition-colors"
+            aria-label="Close"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Title */}
+        <div className="px-5 pb-7 flex-shrink-0">
+          <h2 className="text-[28px] font-bold text-[#1c1c1e] leading-tight">
+            {multipleGroups ? 'Choose credentials to share' : 'Choose a credential to share'}
+          </h2>
+        </div>
+
+        {/* Scrollable candidate list */}
+        <div className="flex-1 overflow-y-auto px-5 pb-28 space-y-6">
+          {ambiguousQueries.map((query) => {
+            const selectedIndex = selections[query.queryId] ?? query.candidates[0]?.index;
+            return (
+              <div key={query.queryId}>
+                {multipleGroups && (
+                  <p className="text-[16px] font-bold text-[#1c1c1e] mb-3">
+                    {localDisplayFor(query.candidates[0]?.type ?? [])?.label ??
+                      getCandidateLabel(query.candidates[0]?.type ?? [])}
+                  </p>
+                )}
+                {!multipleGroups && (
+                  <p className="text-[16px] font-bold text-[#1c1c1e] mb-3">Select one</p>
+                )}
+                <div className="space-y-3">
+                  {query.candidates.map((cand) => {
+                    const isSelected = selectedIndex === cand.index;
+                    const dm = localDisplayFor(cand.type);
+                    const { backgroundColor, textColor } = dm?.backgroundColor
+                      ? { backgroundColor: dm.backgroundColor, textColor: dm.textColor ?? '#ffffff' }
+                      : getCardColorForTypes(cand.type);
+                    const logoUrl = dm?.logoUrl;
+                    const label = dm?.label ?? getCandidateLabel(cand.type);
+                    const issuerLabel = parseIssuerLabel(cand.issuer);
+
+                    return (
+                      <button
+                        key={cand.index}
+                        onClick={() =>
+                          setSelections((prev) => ({ ...prev, [query.queryId]: cand.index }))
+                        }
+                        className={`w-full bg-white rounded-2xl flex items-center px-4 py-3 shadow-sm text-left transition-all ${
+                          isSelected ? 'ring-2 ring-[#5B4FE9]' : ''
+                        }`}
+                      >
+                        {/* Credential thumbnail */}
+                        <div
+                          className="w-[72px] h-[46px] rounded-xl flex-shrink-0 mr-4 flex items-center justify-center overflow-hidden p-1.5"
+                          style={{ backgroundColor }}
+                        >
+                          {logoUrl && (
+                            <img
+                              src={logoUrl}
+                              alt=""
+                              className="h-4 w-full object-contain"
+                              style={{
+                                filter: textColor === '#ffffff' ? 'brightness(0) invert(1)' : undefined,
+                              }}
+                            />
+                          )}
+                        </div>
+                        {/* Label + issuer */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{label}</p>
+                          <p className="text-[13px] text-[#8e8e93] truncate">{issuerLabel}</p>
+                        </div>
+                        {/* Selection indicator */}
+                        {isSelected ? (
+                          <div className="w-6 h-6 rounded-full bg-[#5B4FE9] flex items-center justify-center flex-shrink-0 ml-3">
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                              <path
+                                d="M2.5 6l2.5 2.5 4.5-5"
+                                stroke="#fff"
+                                strokeWidth="1.8"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          </div>
+                        ) : (
+                          <div className="w-6 h-6 rounded-full border-2 border-[#c7c7cc] flex-shrink-0 ml-3" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Pinned Continue button */}
+        <div className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto px-5 pt-4 pb-10 bg-[#F2F2F7] z-40">
+          <PrimaryButton onClick={() => setStage('consent')}>
+            Continue
+          </PrimaryButton>
         </div>
       </div>
     );
@@ -309,7 +450,9 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
             <p className="text-[16px] font-bold text-[#1c1c1e] mb-3">Info to share</p>
             <div className="space-y-3">
               {preview.queries.map((query) => {
-                const cand = query.candidates[0];
+                const cand =
+                  query.candidates.find((c) => c.index === selections[query.queryId]) ??
+                  query.candidates[0];
                 if (!cand) return null;
 
                 const dm = localDisplayFor(cand.type);
