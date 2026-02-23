@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { receiveCredential, fetchKeys, extractNamespacesFromDoc, extractDisplayMetadataFromDoc } from '../api/client';
+import { receiveCredential, fetchKeys, extractNamespacesFromDoc, extractDisplayMetadataFromDoc, lookupDisplayMetadataForDocType } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { detectUriType } from '../utils/uriRouter';
 import {
@@ -139,6 +139,11 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
       }
       if (!cred.displayMetadata) {
         const dm = extractDisplayMetadataFromDoc(response) ?? extractDisplayMetadataFromDoc(raw['credential']);
+        if (dm) cred = { ...cred, displayMetadata: dm };
+      }
+      // Last-resort: look up display metadata from the node's credential type registry
+      if (!cred.displayMetadata && cred.docType) {
+        const dm = await lookupDisplayMetadataForDocType(state.token, cred.docType);
         if (dm) cred = { ...cred, displayMetadata: dm };
       }
 

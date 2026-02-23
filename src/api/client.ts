@@ -13,8 +13,12 @@ export const BASE_URL = 'https://b2b-poc.id-node.neoke.com';
 // Module-level mutable base URL — updated after node selection.
 let _baseUrl = BASE_URL;
 
+// Per-node cache of docType → DisplayMetadata (cleared on node change)
+let _typeDisplayCache: Map<string, import('../types').DisplayMetadata> | null = null;
+
 export function setBaseUrl(url: string): void {
   _baseUrl = url.replace(/\/$/, '');
+  _typeDisplayCache = null; // invalidate cache when switching nodes
 }
 
 export function getBaseUrl(): string {
@@ -304,6 +308,64 @@ export async function fetchStoredCredentials(token: string): Promise<Credential[
         : undefined,
     } as Credential;
   });
+}
+
+// ============================================================
+// Credential types — display metadata lookup
+// ============================================================
+
+interface CredentialTypeRaw {
+  docType?: string;
+  credentialDisplay?: Array<{
+    name?: string;
+    locale?: string;
+    description?: string;
+    background_color?: string;
+    text_color?: string;
+    logo?: { uri?: string };
+  }>;
+}
+
+/**
+ * Load the node's credential type registry and build a docType → DisplayMetadata map.
+ * Result is cached for the lifetime of the current node (cleared by setBaseUrl).
+ */
+async function loadTypeDisplayMap(token: string): Promise<Map<string, import('../types').DisplayMetadata>> {
+  if (_typeDisplayCache) return _typeDisplayCache;
+  try {
+    const resp = await request<{ types?: CredentialTypeRaw[] }>('/:/credentials/types', { token });
+    const map = new Map<string, import('../types').DisplayMetadata>();
+    for (const t of resp.types ?? []) {
+      if (!t.docType) continue;
+      const display = t.credentialDisplay?.find((d) => d.locale === 'en') ?? t.credentialDisplay?.[0];
+      if (display) {
+        map.set(t.docType, {
+          backgroundColor: display.background_color,
+          textColor: display.text_color,
+          label: display.name,
+          description: display.description,
+          logoUrl: display.logo?.uri,
+        });
+      }
+    }
+    _typeDisplayCache = map;
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+/**
+ * Return display metadata for a given docType from the node's type registry.
+ * Falls back gracefully to undefined when the type is not found or the
+ * endpoint is unavailable.
+ */
+export async function lookupDisplayMetadataForDocType(
+  token: string,
+  docType: string
+): Promise<import('../types').DisplayMetadata | undefined> {
+  const map = await loadTypeDisplayMap(token);
+  return map.get(docType);
 }
 
 // ============================================================
