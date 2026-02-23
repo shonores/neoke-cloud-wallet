@@ -388,7 +388,7 @@ export async function discoverWalletCredentials(token: string): Promise<Credenti
  */
 export async function deleteCredential(token: string, credentialId: string): Promise<void> {
   try {
-    await request<void>(`/:/credentials/${encodeURIComponent(credentialId)}`, {
+    await request<void>(`/:/credentials/stored/${encodeURIComponent(credentialId)}`, {
       method: 'DELETE',
       token,
     });
