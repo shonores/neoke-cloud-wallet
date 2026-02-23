@@ -170,10 +170,17 @@ function PlainFieldRow({ label, value }: PlainFieldRowProps) {
     value.length > 50;
 
   if (isImage) {
-    const src =
-      typeof value === 'string' && value.startsWith('data:')
-        ? value
-        : `data:image/jpeg;base64,${value}`;
+    const raw = String(value);
+    let src: string;
+    if (raw.startsWith('data:')) {
+      src = raw;
+    } else if (raw.startsWith('iVBOR')) {
+      src = `data:image/png;base64,${raw}`;   // PNG
+    } else if (raw.startsWith('R0lGOD')) {
+      src = `data:image/gif;base64,${raw}`;   // GIF
+    } else {
+      src = `data:image/jpeg;base64,${raw}`;  // JPEG (default)
+    }
     return (
       <div className="py-3">
         <p className="text-xs text-[#8e8e93] mb-1.5">{label}</p>

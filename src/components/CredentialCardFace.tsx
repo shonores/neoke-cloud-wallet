@@ -39,21 +39,13 @@ export default function CredentialCardFace({
           {label}
         </p>
 
-        {/* Logo: custom issuer logo if provided, otherwise Neoke brand */}
-        {logoUrl ? (
+        {/* Logo: custom issuer logo if provided by credential metadata */}
+        {logoUrl && (
           <img
             src={logoUrl}
             alt="Issuer logo"
             className="h-6 object-contain flex-shrink-0"
             style={{ maxWidth: '42%' }}
-          />
-        ) : (
-          /* Neoke brand logo — white version works on all dark card backgrounds */
-          <img
-            src="/neoke-logo.png"
-            alt="Neoke"
-            className="h-5 object-contain flex-shrink-0"
-            style={{ maxWidth: '42%', opacity: 0.95 }}
           />
         )}
       </div>
