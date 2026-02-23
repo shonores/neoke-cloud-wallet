@@ -44,20 +44,15 @@ export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential
   if (serverCreds.length === 0) return local;
 
   const merged = serverCreds.map((serverCred) => {
-    // Match by docType or overlapping type strings
-    const localMatch = local.find(
-      (lc) =>
-        lc.docType === serverCred.docType ||
-        (Array.isArray(lc.type) &&
-          Array.isArray(serverCred.type) &&
-          lc.type.some((t) => serverCred.type.includes(t)))
-    );
+    // Match by exact credential ID first (most precise)
+    const localMatch = local.find((lc) => lc.id === serverCred.id);
 
     if (localMatch) {
       return {
         ...localMatch,
         id: serverCred.id,
         issuer: serverCred.issuer || localMatch.issuer,
+        issuanceDate: serverCred.issuanceDate ?? localMatch.issuanceDate,
         expirationDate: serverCred.expirationDate ?? localMatch.expirationDate,
         status: serverCred.status ?? localMatch.status,
         _availableClaims:

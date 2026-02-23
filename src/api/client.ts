@@ -514,7 +514,7 @@ export async function receiveCredential(
   const raw = await request<unknown>('/:/oid4vci/receive', {
     method: 'POST',
     token,
-    body: JSON.stringify({ offer_uri: offerUri, keyId }),
+    body: JSON.stringify({ offer_uri: offerUri, ...(keyId ? { keyId } : {}) }),
   });
   console.log('[neoke] receiveCredential raw →', JSON.stringify(raw));
   return raw as ReceiveCredentialResponse;

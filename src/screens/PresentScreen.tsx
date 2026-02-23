@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { previewPresentation, respondPresentation } from '../api/client';
+import { previewPresentation, respondPresentation, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { detectUriType } from '../utils/uriRouter';
 import {
@@ -114,7 +114,7 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
       setPreview(data);
       setStage('consent');
     } catch (err) {
-      if (err instanceof Error && err.message.includes('session')) {
+      if (err instanceof ApiError && err.status === 401) {
         markExpired();
         return;
       }
@@ -140,7 +140,7 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
       setSuccessResult({ redirectUri: result.redirectUri });
       setStage('success');
     } catch (err) {
-      if (err instanceof Error && err.message.includes('session')) {
+      if (err instanceof ApiError && err.status === 401) {
         markExpired();
         return;
       }

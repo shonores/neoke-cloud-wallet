@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { receiveCredential, fetchKeys, extractNamespacesFromDoc, extractDisplayMetadataFromDoc, lookupDisplayMetadataForDocType } from '../api/client';
+import { receiveCredential, fetchKeys, extractNamespacesFromDoc, extractDisplayMetadataFromDoc, lookupDisplayMetadataForDocType, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { detectUriType } from '../utils/uriRouter';
 import {
@@ -156,7 +156,7 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
       setReceivedCredential(cred);
       setStage('consent');
     } catch (err) {
-      if (err instanceof Error && err.message.includes('session')) {
+      if (err instanceof ApiError && err.status === 401) {
         markExpired();
         return;
       }
