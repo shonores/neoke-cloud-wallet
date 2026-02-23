@@ -215,6 +215,7 @@ function AppInner() {
             key="present"
             navigate={navigate}
             initialUri={pendingUri}
+            onPresented={() => setRefreshSignal((s) => s + 1)}
           />
         )}
 

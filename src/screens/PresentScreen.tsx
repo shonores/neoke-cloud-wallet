@@ -17,6 +17,7 @@ type Stage = 'scan' | 'loading' | 'consent' | 'presenting' | 'success' | 'error'
 interface PresentScreenProps {
   navigate: (view: ViewName, extra?: { selectedCredential?: Credential; pendingUri?: string }) => void;
   initialUri?: string;
+  onPresented?: () => void;
 }
 
 // ── Shared scan-toggle icons ─────────────────────────────────────────────────
@@ -67,7 +68,7 @@ function IconCheckCircle() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function PresentScreen({ navigate, initialUri }: PresentScreenProps) {
+export default function PresentScreen({ navigate, initialUri, onPresented }: PresentScreenProps) {
   const { state, markExpired } = useAuth();
   const [stage, setStage] = useState<Stage>(initialUri ? 'loading' : 'scan');
   const [manualUri, setManualUri] = useState(initialUri ?? '');
@@ -205,7 +206,7 @@ export default function PresentScreen({ navigate, initialUri }: PresentScreenPro
               <p className="text-[12px] font-mono text-[#1c1c1e] break-all">{successResult.redirectUri}</p>
             </div>
           )}
-          <PrimaryButton onClick={() => navigate('dashboard')}>
+          <PrimaryButton onClick={() => { onPresented?.(); navigate('dashboard'); }}>
             Back to Wallet
           </PrimaryButton>
         </div>
