@@ -12,6 +12,7 @@ import QRScanner from '../components/QRScanner';
 import PrimaryButton from '../components/PrimaryButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
+import CredentialThumbnail from '../components/CredentialThumbnail';
 import type { Credential, ViewName } from '../types';
 
 type Stage = 'scan' | 'loading' | 'consent' | 'success' | 'error';
@@ -273,20 +274,12 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
           <p className="text-[16px] font-bold text-[#1c1c1e] mb-3">Info to save</p>
 
           <div className="bg-white rounded-2xl flex items-center px-4 py-3 shadow-sm">
-            {/* Mini thumbnail */}
-            <div
-              className="w-[72px] h-[46px] rounded-xl flex-shrink-0 mr-4 flex items-center justify-center overflow-hidden p-1.5"
-              style={{ backgroundColor }}
-            >
-              {logoUrl && (
-                <img
-                  src={logoUrl}
-                  alt=""
-                  className="h-4 w-full object-contain"
-                  style={{ filter: textColor === '#ffffff' ? 'brightness(0) invert(1)' : undefined }}
-                />
-              )}
-            </div>
+            <CredentialThumbnail
+              backgroundColor={backgroundColor}
+              textColor={textColor}
+              logoUrl={logoUrl}
+              className="mr-4"
+            />
             <div className="flex-1 min-w-0">
               <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{label}</p>
               {description && (
