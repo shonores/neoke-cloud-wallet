@@ -1,5 +1,5 @@
 import {
-  getCardGradient,
+  getCardColor,
   getCredentialLabel,
   getCredentialDescription,
 } from '../utils/credentialHelpers';
@@ -19,9 +19,7 @@ export default function CredentialCard({
   onClick,
   stackIndex = 0,
 }: CredentialCardProps) {
-  const gradient = getCardGradient(credential);
-  const bgColor = credential.displayMetadata?.backgroundColor ?? gradient.from;
-  const textColor = credential.displayMetadata?.textColor ?? '#ffffff';
+  const { backgroundColor: bgColor, textColor } = getCardColor(credential);
   const label = credential.displayMetadata?.label ?? getCredentialLabel(credential);
   const description =
     credential.displayMetadata?.description ?? getCredentialDescription(credential);
