@@ -98,7 +98,7 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
           <div className="px-5 pt-6">
             <ErrorMessage message={error} />
             <button
-              onClick={fetchCredentials}
+              onClick={() => fetchCredentials()}
               className="mt-4 w-full bg-white hover:bg-[#e5e5ea] text-[#1c1c1e] text-[15px] py-3 rounded-2xl transition-colors shadow-sm border border-black/5"
             >
               Try again
