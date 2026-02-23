@@ -54,7 +54,7 @@ export default function CredentialDetailScreen({ credential, onBack, onCredentia
       animate={{ x: 0 }}
       exit={{ x: '100%' }}
       transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-      className="fixed inset-0 bg-[#F2F2F7] z-40 flex justify-center overflow-y-auto"
+      className="fixed inset-0 bg-[#F2F2F7] z-40 flex justify-center overflow-y-auto overflow-x-hidden"
     >
       {/* Inner column — same max-w-lg as AppInner so card is identical width to home */}
       <div className="w-full max-w-lg flex flex-col">
@@ -224,7 +224,7 @@ function PlainFieldRow({ label, value }: PlainFieldRowProps) {
   return (
     <div className="py-3 border-b border-black/5 last:border-0">
       <p className="text-xs text-[#8e8e93] mb-0.5">{label}</p>
-      <p className="text-[17px] font-medium text-[#1c1c1e]">{displayValue}</p>
+      <p className="text-[17px] font-medium text-[#1c1c1e] break-all">{displayValue}</p>
     </div>
   );
 }
