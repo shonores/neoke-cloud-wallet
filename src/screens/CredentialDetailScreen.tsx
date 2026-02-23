@@ -171,6 +171,9 @@ function PlainFieldRow({ label, value }: PlainFieldRowProps) {
 
   if (isImage) {
     const raw = String(value);
+    // Log first 80 chars so we can see the format in DevTools console
+    console.log(`[neoke] portrait raw (${raw.length} chars):`, raw.slice(0, 80));
+
     let src: string;
     if (raw.startsWith('data:')) {
       src = raw;
@@ -181,10 +184,24 @@ function PlainFieldRow({ label, value }: PlainFieldRowProps) {
     } else {
       src = `data:image/jpeg;base64,${raw}`;  // JPEG (default)
     }
+    console.log('[neoke] portrait src prefix:', src.slice(0, 40));
     return (
       <div className="py-3">
         <p className="text-xs text-[#8e8e93] mb-1.5">{label}</p>
-        <img src={src} alt={label} className="w-24 h-32 object-cover rounded-xl" loading="lazy" />
+        <img
+          src={src}
+          alt={label}
+          className="w-24 h-32 object-cover rounded-xl"
+          loading="lazy"
+          onError={(e) => {
+            console.error('[neoke] portrait img failed to load', e);
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
+            (e.currentTarget as HTMLImageElement).insertAdjacentHTML(
+              'afterend',
+              '<p style="font-size:11px;color:#8e8e93">⚠ Could not render photo — see console</p>'
+            );
+          }}
+        />
       </div>
     );
   }
