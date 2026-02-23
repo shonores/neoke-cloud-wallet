@@ -55,8 +55,14 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
     fetchCredentials();
   }, [fetchCredentials, refreshSignal]);
 
-  // Re-fetch whenever the tab/window comes back into focus —
-  // picks up server-side changes (deletions, new credentials) without manual refresh.
+  // Poll every 15 s — keeps the dashboard in sync with server-side changes
+  // (new credentials, deletions, status updates) without any manual action.
+  useEffect(() => {
+    const id = setInterval(fetchCredentials, 15_000);
+    return () => clearInterval(id);
+  }, [fetchCredentials]);
+
+  // Also re-fetch immediately when the tab comes back into view.
   useEffect(() => {
     const onVisible = () => { if (!document.hidden) fetchCredentials(); };
     document.addEventListener('visibilitychange', onVisible);
