@@ -229,7 +229,8 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
   if (stage === 'consent' && receivedCredential) {
     const label = getCredentialLabel(receivedCredential);
     const description = getCredentialDescription(receivedCredential);
-    const { backgroundColor } = getCardColor(receivedCredential);
+    const { backgroundColor, textColor } = getCardColor(receivedCredential);
+    const logoUrl = receivedCredential.displayMetadata?.logoUrl;
 
     return (
       <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
@@ -265,9 +266,18 @@ export default function ReceiveScreen({ navigate, onCredentialReceived, initialU
           <div className="bg-white rounded-2xl flex items-center px-4 py-3 shadow-sm">
             {/* Mini thumbnail */}
             <div
-              className="w-[72px] h-[46px] rounded-xl flex-shrink-0 mr-4"
+              className="w-[72px] h-[46px] rounded-xl flex-shrink-0 mr-4 flex items-center justify-center overflow-hidden p-1.5"
               style={{ backgroundColor }}
-            />
+            >
+              {logoUrl && (
+                <img
+                  src={logoUrl}
+                  alt=""
+                  className="h-4 w-full object-contain"
+                  style={{ filter: textColor === '#ffffff' ? 'brightness(0) invert(1)' : undefined }}
+                />
+              )}
+            </div>
             <div className="flex-1 min-w-0">
               <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{label}</p>
               {description && (
