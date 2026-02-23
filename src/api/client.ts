@@ -316,12 +316,13 @@ export async function fetchStoredCredentials(token: string): Promise<Credential[
  * Strategy 2 (fallback): VP preview — lightweight stubs, no field values.
  */
 export async function discoverWalletCredentials(token: string): Promise<Credential[]> {
-  // Strategy 1: stored credentials endpoint (authoritative, includes field values)
+  // Strategy 1: stored credentials endpoint (authoritative, includes field values).
+  // An empty response means the wallet genuinely has no credentials — trust it
+  // and return immediately rather than falling through to VP preview.
   try {
-    const stored = await fetchStoredCredentials(token);
-    if (stored.length > 0) return stored;
+    return await fetchStoredCredentials(token);
   } catch {
-    // fall through to VP preview discovery
+    // Network/auth error — fall through to VP preview as best-effort fallback
   }
 
   // Strategy 2: VP preview (stubs only — no field values)

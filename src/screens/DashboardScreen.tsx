@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { discoverWalletCredentials } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { getLocalCredentials, mergeWithLocalCredentials } from '../store/localCredentials';
+import { getLocalCredentials, mergeWithLocalCredentials, clearLocalCredentials } from '../store/localCredentials';
 import CredentialStack from '../components/CredentialStack';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
@@ -30,8 +30,14 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
 
     try {
       const serverCreds = await discoverWalletCredentials(token);
-      const merged = mergeWithLocalCredentials(serverCreds);
-      setCredentials(merged);
+      if (serverCreds.length === 0) {
+        // Server confirmed the wallet is empty — clear stale local cache
+        clearLocalCredentials();
+        setCredentials([]);
+      } else {
+        const merged = mergeWithLocalCredentials(serverCreds);
+        setCredentials(merged);
+      }
     } catch {
       const local = getLocalCredentials();
       setCredentials(local);
