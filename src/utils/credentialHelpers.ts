@@ -169,13 +169,12 @@ export function getCredentialDescription(credential: Credential): string {
     return credential.credentialSubject.issuing_authority;
   }
 
-  // Use issuer as card subtitle when no richer info is available.
-  // Strip X.509 CN= prefix; skip bare DIDs (too long / not human-readable).
+  // Use a readable issuer label as card subtitle when no richer info is available.
+  // Skip bare DIDs (too long / not human-readable) but parse X.509 DNs and did:web.
   if (credential.issuer) {
-    const issuer = credential.issuer;
-    if (issuer.startsWith('CN=')) return issuer.slice(3).trim();
-    if (!issuer.startsWith('did:')) {
-      return issuer.length > 50 ? issuer.slice(0, 50) + '…' : issuer;
+    const label = parseIssuerLabel(credential.issuer);
+    if (label !== 'Unknown Issuer' && !credential.issuer.startsWith('did:')) {
+      return label;
     }
   }
 
@@ -221,16 +220,27 @@ export function getCardColorForTypes(types: string[]): { backgroundColor: string
 // ============================================================
 // Issuer display
 // ============================================================
-export function getIssuerDisplay(credential: Credential): string {
-  const issuer = credential.issuer ?? '';
+
+/**
+ * Return a short, human-readable label for an issuer string.
+ * Handles: did:web:, generic DIDs, X.509 Distinguished Names (CN=, O=), and plain strings.
+ */
+export function parseIssuerLabel(issuer: string): string {
   if (!issuer) return 'Unknown Issuer';
-  if (issuer.startsWith('did:web:')) {
-    return issuer.replace('did:web:', '').split(':')[0];
+  if (issuer.startsWith('did:web:')) return issuer.replace('did:web:', '').split(':')[0];
+  if (issuer.startsWith('did:'))     return issuer.substring(0, 30) + (issuer.length > 30 ? '…' : '');
+  // X.509 Distinguished Name — extract CN=, then O=, then first value
+  if (issuer.includes('=')) {
+    const cn = issuer.match(/(?:^|,\s*)CN=([^,]+)/);
+    if (cn) return cn[1].trim();
+    const o = issuer.match(/(?:^|,\s*)O=([^,]+)/);
+    if (o) return o[1].trim();
   }
-  if (issuer.startsWith('did:')) {
-    return issuer.substring(0, 30) + (issuer.length > 30 ? '…' : '');
-  }
-  return issuer;
+  return issuer.length > 50 ? issuer.slice(0, 50) + '…' : issuer;
+}
+
+export function getIssuerDisplay(credential: Credential): string {
+  return parseIssuerLabel(credential.issuer ?? '');
 }
 
 // ============================================================

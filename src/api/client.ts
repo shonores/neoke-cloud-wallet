@@ -7,11 +7,9 @@ import type {
   WalletKey,
 } from '../types';
 
-/** Kept for backwards-compat imports; prefer getBaseUrl() for dynamic use. */
-export const BASE_URL = 'https://b2b-poc.id-node.neoke.com';
-
-// Module-level mutable base URL — updated after node selection.
-let _baseUrl = BASE_URL;
+// Module-level mutable base URL — set via setBaseUrl() during onboarding/session restore.
+// Starts empty so accidental pre-login calls fail explicitly rather than hitting a wrong node.
+let _baseUrl = '';
 
 // Per-node cache of docType → DisplayMetadata (cleared on node change)
 let _typeDisplayCache: Map<string, import('../types').DisplayMetadata> | null = null;
@@ -112,6 +110,10 @@ async function request<T>(
     headers['Authorization'] = `ApiKey ${apiKey}`;
   }
 
+  if (!_baseUrl) {
+    throw new ApiError('No wallet node is configured. Please log in first.');
+  }
+
   let response: Response;
   try {
     response = await fetch(`${_baseUrl}${path}`, {
@@ -174,11 +176,18 @@ export async function apiKeyAuth(apiKey: string, nodeBaseUrl?: string): Promise<
 export function extractNamespacesFromDoc(data: unknown): Record<string, Record<string, unknown>> | undefined {
   if (!data || typeof data !== 'object') return undefined;
   const d = data as Record<string, unknown>;
+  const meta = d['metadata'] as Record<string, unknown> | undefined;
 
   const paths: unknown[] = [
     d['namespaces'],
+    // "metadata.nameSpaces" — used by /:/oid4vci/receive and /:/credentials/stored
+    meta?.['nameSpaces'],
+    meta?.['namespaces'],
     (d['document'] as Record<string, unknown> | undefined)?.['namespaces'],
     (d['credential'] as Record<string, unknown> | undefined)?.['namespaces'],
+    (d['credential'] as Record<string, unknown> | undefined)?.['metadata']
+      ? ((d['credential'] as Record<string, unknown>)['metadata'] as Record<string, unknown>)?.['nameSpaces']
+      : undefined,
     (d['mdoc'] as Record<string, unknown> | undefined)?.['namespaces'],
     (d['data'] as Record<string, unknown> | undefined)?.['namespaces'],
     (d['issuerSigned'] as Record<string, unknown> | undefined)?.['nameSpaces'],
@@ -200,15 +209,22 @@ export function extractNamespacesFromDoc(data: unknown): Record<string, Record<s
 export function extractDisplayMetadataFromDoc(data: unknown): import('../types').DisplayMetadata | undefined {
   if (!data || typeof data !== 'object') return undefined;
   const d = data as Record<string, unknown>;
+  const meta = d['metadata'] as Record<string, unknown> | undefined;
+  const credObj = d['credential'] as Record<string, unknown> | undefined;
+  const credMeta = credObj?.['metadata'] as Record<string, unknown> | undefined;
 
   const displayCandidates: unknown[] = [
     d['displayMetadata'],
     d['display_metadata'],
     d['display'],
+    // "metadata.credentialDisplay" — used by /:/oid4vci/receive and /:/credentials/stored
+    meta?.['credentialDisplay'],
+    // nested inside the "credential" wrapper returned by /:/oid4vci/receive
+    credMeta?.['credentialDisplay'],
     (d['issuerMetadata'] as Record<string, unknown> | undefined)?.['display'],
     (d['issuer_metadata'] as Record<string, unknown> | undefined)?.['display'],
-    (d['credential'] as Record<string, unknown> | undefined)?.['displayMetadata'],
-    (d['credential'] as Record<string, unknown> | undefined)?.['display'],
+    credObj?.['displayMetadata'],
+    credObj?.['display'],
     (d['document'] as Record<string, unknown> | undefined)?.['displayMetadata'],
     (d['meta'] as Record<string, unknown> | undefined)?.['display'],
   ];
@@ -279,7 +295,7 @@ export async function fetchStoredCredentials(token: string): Promise<Credential[
 
   return raw.map((item) => {
     const display =
-      item.metadata?.credentialDisplay?.find((d) => d.locale === 'en') ??
+      item.metadata?.credentialDisplay?.find((d) => d.locale?.startsWith('en')) ??
       item.metadata?.credentialDisplay?.[0];
 
     const docType = item.type[0] ?? '';
@@ -337,7 +353,7 @@ async function loadTypeDisplayMap(token: string): Promise<Map<string, import('..
     const map = new Map<string, import('../types').DisplayMetadata>();
     for (const t of resp.types ?? []) {
       if (!t.docType) continue;
-      const display = t.credentialDisplay?.find((d) => d.locale === 'en') ?? t.credentialDisplay?.[0];
+      const display = t.credentialDisplay?.find((d) => d.locale?.startsWith('en')) ?? t.credentialDisplay?.[0];
       if (display) {
         map.set(t.docType, {
           backgroundColor: display.background_color,

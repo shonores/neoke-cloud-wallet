@@ -118,17 +118,17 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
                 </svg>
               </div>
               <h2 className="text-[17px] font-bold text-[#1c1c1e] mb-1.5">
-                No travel document… yet!
+                No credentials yet
               </h2>
               <p className="text-[14px] text-[#8e8e93] mb-5 leading-relaxed">
-                You only need to upload it once and then you can reuse it for all future trips.
+                Scan a QR code or paste a credential offer link to add your first credential.
               </p>
               <button
                 onClick={() => navigate('receive')}
                 className="text-white text-[15px] font-semibold px-6 py-3 rounded-full transition-opacity active:opacity-80"
                 style={{ backgroundColor: '#5B4FE9' }}
               >
-                Upload travel document
+                Add credential
               </button>
             </div>
           </div>

@@ -5,7 +5,9 @@ import { detectUriType } from '../utils/uriRouter';
 import {
   getCandidateLabel,
   getCardColorForTypes,
+  parseIssuerLabel,
 } from '../utils/credentialHelpers';
+import { getLocalCredentials } from '../store/localCredentials';
 import QRScanner from '../components/QRScanner';
 import PrimaryButton from '../components/PrimaryButton';
 import LoadingSpinner from '../components/LoadingSpinner';
@@ -216,7 +218,14 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
 
   // ── Consent ──
   if (stage === 'consent' && preview) {
-    const verifierName = preview.verifier.name ?? preview.verifier.clientId;
+    const verifierName = preview.verifier.name ?? parseIssuerLabel(preview.verifier.clientId);
+    const localCreds = getLocalCredentials();
+
+    // Best-effort: find a local credential whose type matches the candidate's type
+    // so we can use its display metadata (colors, logo) on the consent card.
+    function localDisplayFor(types: string[]) {
+      return localCreds.find((lc) => types.some((t) => lc.type?.includes(t)))?.displayMetadata;
+    }
 
     return (
       <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
@@ -264,8 +273,14 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
               {preview.queries.map((query) => {
                 const cand = query.candidates[0];
                 if (!cand) return null;
-                const { backgroundColor } = getCardColorForTypes(cand.type);
-                const label = getCandidateLabel(cand.type);
+
+                const dm = localDisplayFor(cand.type);
+                const { backgroundColor, textColor } = dm?.backgroundColor
+                  ? { backgroundColor: dm.backgroundColor, textColor: dm.textColor ?? '#ffffff' }
+                  : getCardColorForTypes(cand.type);
+                const logoUrl = dm?.logoUrl;
+                const label = dm?.label ?? getCandidateLabel(cand.type);
+                const issuerLabel = parseIssuerLabel(cand.issuer);
 
                 return (
                   <div
@@ -273,12 +288,21 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
                     className="bg-white rounded-2xl flex items-center px-4 py-3 shadow-sm"
                   >
                     <div
-                      className="w-[72px] h-[46px] rounded-xl flex-shrink-0 mr-4"
+                      className="w-[72px] h-[46px] rounded-xl flex-shrink-0 mr-4 flex items-center justify-center overflow-hidden p-1.5"
                       style={{ backgroundColor }}
-                    />
+                    >
+                      {logoUrl && (
+                        <img
+                          src={logoUrl}
+                          alt=""
+                          className="h-4 w-full object-contain"
+                          style={{ filter: textColor === '#ffffff' ? 'brightness(0) invert(1)' : undefined }}
+                        />
+                      )}
+                    </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{label}</p>
-                      <p className="text-[13px] text-[#8e8e93] truncate">{cand.issuer}</p>
+                      <p className="text-[13px] text-[#8e8e93] truncate">{issuerLabel}</p>
                     </div>
                     <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="flex-shrink-0 ml-3">
                       <path d="M1 1l6 6-6 6" stroke="#c7c7cc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
