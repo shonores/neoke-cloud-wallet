@@ -194,6 +194,10 @@ function AppInner() {
             key="detail"
             credential={selectedCredential}
             onBack={() => navigate('dashboard')}
+            onCredentialDeleted={() => {
+              setRefreshSignal((s) => s + 1);
+              navigate('dashboard');
+            }}
           />
         )}
 

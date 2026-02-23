@@ -55,6 +55,14 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
     fetchCredentials();
   }, [fetchCredentials, refreshSignal]);
 
+  // Re-fetch whenever the tab/window comes back into focus —
+  // picks up server-side changes (deletions, new credentials) without manual refresh.
+  useEffect(() => {
+    const onVisible = () => { if (!document.hidden) fetchCredentials(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [fetchCredentials]);
+
   return (
     <div className="flex-1 flex flex-col bg-[#F2F2F7] min-h-screen">
 

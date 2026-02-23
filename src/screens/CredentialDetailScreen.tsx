@@ -19,11 +19,12 @@ import type { Credential } from '../types';
 interface CredentialDetailScreenProps {
   credential: Credential;
   onBack: () => void;
+  onCredentialDeleted?: () => void;
 }
 
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}/;
 
-export default function CredentialDetailScreen({ credential, onBack }: CredentialDetailScreenProps) {
+export default function CredentialDetailScreen({ credential, onBack, onCredentialDeleted }: CredentialDetailScreenProps) {
   const { state } = useAuth();
   const [deleting, setDeleting] = useState(false);
 
@@ -39,12 +40,12 @@ export default function CredentialDetailScreen({ credential, onBack }: Credentia
   const handleDelete = async () => {
     if (deleting) return;
     setDeleting(true);
-    // Fire server delete (best-effort) then remove locally
     if (state.token) {
       await deleteCredential(state.token, credential.id);
     }
     deleteLocalCredential(credential.id);
-    onBack();
+    // Notify parent so the dashboard re-fetches before navigating back
+    onCredentialDeleted ? onCredentialDeleted() : onBack();
   };
 
   return (
