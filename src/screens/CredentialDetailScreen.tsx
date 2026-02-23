@@ -164,12 +164,14 @@ interface PlainFieldRowProps {
 
 function PlainFieldRow({ label, value }: PlainFieldRowProps) {
   const lowerLabel = label.toLowerCase();
-  // A real photo is at least ~1 KB of base64 (≈1366 chars); anything shorter
-  // is a 1×1 placeholder or test stub — skip the image slot entirely.
-  const isImage =
-    (lowerLabel.includes('photo') || lowerLabel.includes('portrait') || lowerLabel.includes('picture')) &&
-    typeof value === 'string' &&
-    value.length > 1000;
+  const isPhotoField =
+    lowerLabel.includes('photo') || lowerLabel.includes('portrait') || lowerLabel.includes('picture');
+
+  // A real photo is at least ~1 KB of base64 (≈1366 chars).
+  // Anything shorter is a placeholder stub — skip the row entirely rather
+  // than rendering raw base64 text which breaks the mobile layout.
+  const isImage = isPhotoField && typeof value === 'string' && value.length > 1000;
+  if (isPhotoField && !isImage) return null;
 
   if (isImage) {
     const raw = String(value);
