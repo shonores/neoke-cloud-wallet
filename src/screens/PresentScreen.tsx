@@ -78,7 +78,8 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
   const [currentRequestUri, setCurrentRequestUri] = useState(initialUri ?? '');
   const [preview, setPreview] = useState<VPPreviewResponse | null>(null);
   const [error, setError] = useState('');
-  const [successResult, setSuccessResult] = useState<{ redirectUri?: string } | null>(null);
+  const [skippedX509, setSkippedX509] = useState(false);
+  const [successResult, setSuccessResult] = useState<{ redirectUri?: string; skippedX509?: boolean } | null>(null);
 
   const processPresentUri = useCallback(async (uri: string) => {
     if (!state.token) return;
@@ -97,33 +98,49 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
 
     setStage('loading');
     setError('');
+    setSkippedX509(false);
     setCurrentRequestUri(trimmed);
 
-    try {
-      const data = await previewPresentation(state.token, trimmed);
-
+    // Helper: validate and apply the preview response
+    const applyPreview = (data: VPPreviewResponse, usedSkip: boolean) => {
       const hasAnyCandidate = data.queries?.some((q) => q.candidates?.length > 0);
       if (!data.queries || data.queries.length === 0 || !hasAnyCandidate) {
         setError(
           "No matching credential found. The verifier is requesting a credential type that isn't in your wallet yet. Try receiving the required credential first."
         );
         setStage('error');
-        return;
+        return false;
       }
-
+      setSkippedX509(usedSkip);
       setPreview(data);
       setStage('consent');
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
+      return true;
+    };
+
+    try {
+      const data = await previewPresentation(state.token, trimmed);
+      applyPreview(data, false);
+    } catch (firstErr) {
+      if (firstErr instanceof ApiError && firstErr.status === 401) {
         markExpired();
         return;
       }
-      setError(
-        err instanceof Error
-          ? err.message
-          : 'Unable to process the presentation request. Please check your network connection and try again.'
-      );
-      setStage('error');
+      // Silently retry without X.509 chain validation
+      try {
+        const data = await previewPresentation(state.token, trimmed, true);
+        applyPreview(data, true);
+      } catch (retryErr) {
+        if (retryErr instanceof ApiError && retryErr.status === 401) {
+          markExpired();
+          return;
+        }
+        setError(
+          retryErr instanceof Error
+            ? retryErr.message
+            : 'Unable to process the presentation request. Please check your network connection and try again.'
+        );
+        setStage('error');
+      }
     }
   }, [state.token, navigate, markExpired]);
 
@@ -136,17 +153,32 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
     if (!state.token || !currentRequestUri) return;
     setStage('presenting');
     try {
-      const result = await respondPresentation(state.token, currentRequestUri);
-      setSuccessResult({ redirectUri: result.redirectUri });
+      const result = await respondPresentation(state.token, currentRequestUri, undefined, skippedX509);
+      setSuccessResult({ redirectUri: result.redirectUri, skippedX509 });
       setStage('success');
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
+    } catch (firstErr) {
+      if (firstErr instanceof ApiError && firstErr.status === 401) {
         markExpired();
         return;
       }
+      // If we haven't already skipped X.509, silently retry without chain validation
+      if (!skippedX509) {
+        try {
+          const result = await respondPresentation(state.token, currentRequestUri, undefined, true);
+          setSkippedX509(true);
+          setSuccessResult({ redirectUri: result.redirectUri, skippedX509: true });
+          setStage('success');
+          return;
+        } catch (retryErr) {
+          if (retryErr instanceof ApiError && retryErr.status === 401) {
+            markExpired();
+            return;
+          }
+        }
+      }
       setError(
-        err instanceof Error
-          ? `Presentation failed: ${err.message}`
+        firstErr instanceof Error
+          ? `Presentation failed: ${firstErr.message}`
           : 'Presentation failed. The verifier could not verify your credential.'
       );
       setStage('error');
@@ -202,6 +234,12 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
             <p className="text-[#1c1c1e] font-bold text-[28px] leading-tight">Credential Shared</p>
             <p className="text-[#8e8e93] text-[15px] mt-1">The verifier has received your credential.</p>
           </div>
+          {successResult?.skippedX509 && (
+            <div className="bg-[#fff3cd] border border-[#ffc107]/40 rounded-2xl px-4 py-3 text-left">
+              <p className="text-[13px] font-semibold text-[#856404] mb-0.5">Certificate chain not verified</p>
+              <p className="text-[12px] text-[#856404]/80">The verifier's X.509 certificate chain could not be validated. The credential was shared without verifying the verifier's identity.</p>
+            </div>
+          )}
           {successResult?.redirectUri && (
             <div className="bg-white rounded-2xl p-4 text-left shadow-sm">
               <p className="text-[11px] text-[#8e8e93] uppercase tracking-wide mb-1">Redirect</p>

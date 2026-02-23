@@ -525,19 +525,24 @@ export async function receiveCredential(
 // ============================================================
 export async function previewPresentation(
   token: string,
-  requestUri: string
+  requestUri: string,
+  skipX509ChainValidation?: boolean
 ): Promise<VPPreviewResponse> {
   return request<VPPreviewResponse>('/:/auth/siop/respond/preview', {
     method: 'POST',
     token,
-    body: JSON.stringify({ request: requestUri }),
+    body: JSON.stringify({
+      request: requestUri,
+      ...(skipX509ChainValidation ? { skipX509ChainValidation: true } : {}),
+    }),
   });
 }
 
 export async function respondPresentation(
   token: string,
   requestUri: string,
-  selections?: Record<string, number>
+  selections?: Record<string, number>,
+  skipX509ChainValidation?: boolean
 ): Promise<VPRespondResponse> {
   return request<VPRespondResponse>('/:/auth/siop/respond', {
     method: 'POST',
@@ -545,6 +550,7 @@ export async function respondPresentation(
     body: JSON.stringify({
       request: requestUri,
       ...(selections ? { selections } : {}),
+      ...(skipX509ChainValidation ? { skipX509ChainValidation: true } : {}),
     }),
   });
 }
