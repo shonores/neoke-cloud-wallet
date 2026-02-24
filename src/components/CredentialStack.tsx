@@ -53,7 +53,7 @@ export default function CredentialStack({ credentials, onSelectCredential }: Cre
 
         return (
           <div
-            key={credential.id}
+            key={`${idx}-${credential.id}`}
             style={{
               // Pull each card up so only PEEK_HEIGHT of the card below it shows.
               // 100% = containing-block width (the px-4 wrapper in DashboardScreen).
