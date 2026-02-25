@@ -4,7 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import { detectUriType } from '../utils/uriRouter';
 import {
   getCandidateLabel,
+  getCardColor,
   getCardColorForTypes,
+  getCredentialLabel,
   parseIssuerLabel,
 } from '../utils/credentialHelpers';
 import { getLocalCredentials } from '../store/localCredentials';
@@ -82,6 +84,17 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
   const [skippedX509, setSkippedX509] = useState(false);
   const [selections, setSelections] = useState<Record<string, number>>({});
   const [successResult, setSuccessResult] = useState<{ redirectUri?: string; skippedX509?: boolean } | null>(null);
+
+  // Find the best local credential match for a VP candidate so thumbnails use
+  // per-credential display metadata (colors, logo) rather than type-only defaults.
+  // Prefers type+issuer match; falls back to type-only.
+  const localCreds = getLocalCredentials();
+  const findLocalCred = (candTypes: string[], candIssuer: string) => {
+    const byBoth = localCreds.find(
+      (lc) => candTypes.some((t) => lc.type?.includes(t)) && lc.issuer === candIssuer
+    );
+    return byBoth ?? localCreds.find((lc) => candTypes.some((t) => lc.type?.includes(t)));
+  };
 
   const processPresentUri = useCallback(async (uri: string) => {
     if (!state.token) return;
@@ -213,9 +226,6 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
 
   // ── Select (multiple candidates for one or more queries) ──
   if (stage === 'select' && preview) {
-    const localCreds = getLocalCredentials();
-    const localDisplayFor = (types: string[]) =>
-      localCreds.find((lc) => types.some((t) => lc.type?.includes(t)))?.displayMetadata;
 
     // Only show queries that have more than one candidate — single-candidate queries
     // are auto-selected and will appear on the consent screen.
@@ -257,8 +267,11 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
               <div key={query.queryId}>
                 {multipleGroups && (
                   <p className="text-[16px] font-bold text-[#1c1c1e] mb-3">
-                    {localDisplayFor(query.candidates[0]?.type ?? [])?.label ??
-                      getCandidateLabel(query.candidates[0]?.type ?? [])}
+                    {(() => {
+                      const first = query.candidates[0];
+                      const lc = first ? findLocalCred(first.type, first.issuer) : undefined;
+                      return lc ? getCredentialLabel(lc) : getCandidateLabel(first?.type ?? []);
+                    })()}
                   </p>
                 )}
                 {!multipleGroups && (
@@ -267,12 +280,12 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
                 <div className="space-y-3">
                   {query.candidates.map((cand) => {
                     const isSelected = selectedIndex === cand.index;
-                    const dm = localDisplayFor(cand.type);
-                    const { backgroundColor, textColor } = dm?.backgroundColor
-                      ? { backgroundColor: dm.backgroundColor, textColor: dm.textColor ?? '#ffffff' }
+                    const localCred = findLocalCred(cand.type, cand.issuer);
+                    const { backgroundColor, textColor } = localCred
+                      ? getCardColor(localCred)
                       : getCardColorForTypes(cand.type);
-                    const logoUrl = dm?.logoUrl;
-                    const label = dm?.label ?? getCandidateLabel(cand.type);
+                    const logoUrl = localCred?.displayMetadata?.logoUrl;
+                    const label = localCred ? getCredentialLabel(localCred) : getCandidateLabel(cand.type);
                     const issuerLabel = parseIssuerLabel(cand.issuer);
 
                     return (
@@ -389,13 +402,6 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
   // ── Consent ──
   if (stage === 'consent' && preview) {
     const verifierName = preview.verifier.name ?? parseIssuerLabel(preview.verifier.clientId);
-    const localCreds = getLocalCredentials();
-
-    // Best-effort: find a local credential whose type matches the candidate's type
-    // so we can use its display metadata (colors, logo) on the consent card.
-    function localDisplayFor(types: string[]) {
-      return localCreds.find((lc) => types.some((t) => lc.type?.includes(t)))?.displayMetadata;
-    }
 
     return (
       <div className="flex flex-col min-h-screen bg-[#F2F2F7]">
@@ -446,12 +452,12 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
                   query.candidates[0];
                 if (!cand) return null;
 
-                const dm = localDisplayFor(cand.type);
-                const { backgroundColor, textColor } = dm?.backgroundColor
-                  ? { backgroundColor: dm.backgroundColor, textColor: dm.textColor ?? '#ffffff' }
+                const localCred = findLocalCred(cand.type, cand.issuer);
+                const { backgroundColor, textColor } = localCred
+                  ? getCardColor(localCred)
                   : getCardColorForTypes(cand.type);
-                const logoUrl = dm?.logoUrl;
-                const label = dm?.label ?? getCandidateLabel(cand.type);
+                const logoUrl = localCred?.displayMetadata?.logoUrl;
+                const label = localCred ? getCredentialLabel(localCred) : getCandidateLabel(cand.type);
                 const issuerLabel = parseIssuerLabel(cand.issuer);
 
                 return (

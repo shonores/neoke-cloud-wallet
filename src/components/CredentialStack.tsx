@@ -36,7 +36,7 @@ const ASPECT_RATIO = 1.586;
  * card below (not a hard line), which immediately renders with no animation delay.
  */
 export default function CredentialStack({ credentials, onSelectCredential }: CredentialStackProps) {
-  // credentials prop arrives newest-first (from localStorage); reverse so oldest renders first.
+  // credentials prop arrives newest-first (sorted by issuanceDate desc); reverse so oldest renders first.
   const renderOrder = [...credentials].reverse();
 
   return (

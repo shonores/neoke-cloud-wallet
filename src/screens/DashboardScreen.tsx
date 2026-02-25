@@ -141,7 +141,11 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
           */
           <div className="pt-2 px-4">
             <CredentialStack
-              credentials={credentials}
+              credentials={[...credentials].sort((a, b) => {
+                const aT = a.issuanceDate ? new Date(a.issuanceDate).getTime() : 0;
+                const bT = b.issuanceDate ? new Date(b.issuanceDate).getTime() : 0;
+                return bT - aT; // newest first; CredentialStack reverses → newest at front
+              })}
               onSelectCredential={(c) => navigate('detail', { selectedCredential: c })}
             />
           </div>
