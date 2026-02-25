@@ -22,8 +22,7 @@ export default function AccountScreen({ navigate }: AccountScreenProps) {
   };
 
   const handleSignOut = () => {
-    clearLocalCredentials();
-    logout();
+    logout(); // logout() now clears credentials internally
   };
 
   return (

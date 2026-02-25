@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { setBaseUrl, nodeIdentifierToUrl } from '../api/client';
+import { clearLocalCredentials } from '../store/localCredentials';
 
 // ============================================================
 // Storage keys
@@ -176,6 +177,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setToken = useCallback((token: string, expiresAt: number) => {
+    // Clear any cached credentials from a previous session so the fresh
+    // fetch after login never falls back to stale local data.
+    clearLocalCredentials();
     dispatch({ type: 'SET_TOKEN', token, expiresAt });
   }, []);
 
@@ -194,6 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(SK.ACTIVITY);
       // Intentionally keep SK.NODE_ID so the identifier is pre-filled on next login
     } catch { /* */ }
+    clearLocalCredentials();
     dispatch({ type: 'LOGOUT' });
   }, []);
 
