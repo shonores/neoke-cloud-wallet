@@ -81,6 +81,11 @@ function isWithinActivityWindow(): boolean {
 }
 
 function initState(): AuthState {
+  // Always wipe the credential cache at app start so a restored session
+  // never falls back to data cached days ago on the first fetch failure.
+  // The first successful fetch repopulates it; setToken() also clears on login.
+  clearLocalCredentials();
+
   const empty: AuthState = {
     token: null,
     expiresAt: null,
