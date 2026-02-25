@@ -34,6 +34,12 @@ interface AuthState {
   nodeIdentifier: string | null;
   /** Full API base URL, e.g. "https://b2b-poc.id-node.neoke.com" */
   baseUrl: string | null;
+  /**
+   * Increments on every SET_TOKEN call (login or re-auth), regardless of
+   * whether the token string changed. Used as the React key for DashboardScreen
+   * so it always remounts fresh — even when the server re-issues the same token.
+   */
+  loginNonce: number;
 }
 
 type AuthAction =
@@ -52,9 +58,11 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         token: action.token,
         expiresAt: action.expiresAt,
         sessionExpired: false,
+        loginNonce: state.loginNonce + 1,
       };
     case 'SESSION_EXPIRED':
       return { ...state, token: null, sessionExpired: true };
+      // loginNonce intentionally unchanged — dashboard is hidden by ReAuthModal
     case 'LOGOUT':
       return {
         token: null,
@@ -62,6 +70,7 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         sessionExpired: false,
         nodeIdentifier: null,
         baseUrl: null,
+        loginNonce: 0,
       };
     default:
       return state;
@@ -92,6 +101,7 @@ function initState(): AuthState {
     sessionExpired: false,
     nodeIdentifier: null,
     baseUrl: null,
+    loginNonce: 0,
   };
 
   try {
@@ -110,7 +120,7 @@ function initState(): AuthState {
 
     const bUrl = nodeIdentifierToUrl(nodeId);
     setBaseUrl(bUrl); // prime the API client before first render
-    return { token, expiresAt, sessionExpired: false, nodeIdentifier: nodeId, baseUrl: bUrl };
+    return { token, expiresAt, sessionExpired: false, nodeIdentifier: nodeId, baseUrl: bUrl, loginNonce: 1 };
   } catch {
     return empty;
   }

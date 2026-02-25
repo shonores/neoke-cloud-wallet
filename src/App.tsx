@@ -183,7 +183,7 @@ function AppInner() {
       <AnimatePresence mode="wait">
         {currentView === 'dashboard' && (
           <DashboardScreen
-            key={state.token ?? 'unauthenticated'}
+            key={state.loginNonce}
             navigate={navigate}
             refreshSignal={refreshSignal}
           />
