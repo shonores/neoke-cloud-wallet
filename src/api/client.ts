@@ -119,6 +119,7 @@ async function request<T>(
     response = await fetch(`${_baseUrl}${path}`, {
       ...fetchOptions,
       headers,
+      cache: 'no-store', // never serve a cached response for wallet API calls
     });
   } catch {
     throw new ApiError(

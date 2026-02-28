@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { discoverWalletCredentials } from '../api/client';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { discoverWalletCredentials, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { getLocalCredentials, mergeWithLocalCredentials, clearLocalCredentials } from '../store/localCredentials';
 import CredentialStack from '../components/CredentialStack';
@@ -13,12 +13,18 @@ interface DashboardScreenProps {
   refreshSignal?: number;
 }
 
+/** After this many ms of absence, return-to-tab triggers a full spinner refresh. */
+const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+
 export default function DashboardScreen({ navigate, refreshSignal }: DashboardScreenProps) {
-  const { state } = useAuth();
+  const { state, markExpired } = useAuth();
   const [credentials, setCredentials] = useState<Credential[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [usingLocalFallback, setUsingLocalFallback] = useState(false);
+
+  /** Timestamp of the last successful server fetch (0 = never). */
+  const lastFetchRef = useRef(0);
 
   const token = state.token;
 
@@ -30,6 +36,7 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
 
     try {
       const serverCreds = await discoverWalletCredentials(token);
+      lastFetchRef.current = Date.now();
       if (serverCreds.length === 0) {
         // Server confirmed the wallet is empty — clear stale local cache
         clearLocalCredentials();
@@ -38,7 +45,13 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
         const merged = mergeWithLocalCredentials(serverCreds);
         setCredentials(merged);
       }
-    } catch {
+    } catch (err) {
+      // 401 means the bearer token has expired on the server — show re-auth UI,
+      // never fall back to stale local data.
+      if (err instanceof ApiError && err.status === 401) {
+        markExpired();
+        return;
+      }
       const local = getLocalCredentials();
       setCredentials(local);
       if (local.length > 0) {
@@ -49,8 +62,9 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, markExpired]);
 
+  // Initial fetch + refresh when token/refreshSignal changes.
   useEffect(() => {
     fetchCredentials();
   }, [fetchCredentials, refreshSignal]);
@@ -61,11 +75,37 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
     return () => clearInterval(id);
   }, [fetchCredentials]);
 
-  // Also re-fetch silently when the tab comes back into view.
+  // When the tab becomes visible again, decide whether to show a full spinner
+  // (long absence) or do a silent refresh (brief tab switch).
   useEffect(() => {
-    const onVisible = () => { if (!document.hidden) fetchCredentials(false); };
+    const onVisible = () => {
+      if (document.hidden) return;
+      const stale = Date.now() - lastFetchRef.current > STALE_THRESHOLD_MS;
+      if (stale) {
+        // Reset so the user sees a spinner, not yesterday's credentials.
+        setCredentials([]);
+        setLoading(true);
+      }
+      void fetchCredentials(stale);
+    };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [fetchCredentials]);
+
+  // BFCache: some browsers (Safari, Chrome) preserve the entire JS heap
+  // when navigating away. On return, React effects have NOT re-run and the
+  // component still holds its old credentials state. Force a fresh fetch.
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return;
+      // Page was restored from the back-forward cache — clear stale state
+      // and show the spinner so the user never sees yesterday's data.
+      setCredentials([]);
+      setLoading(true);
+      void fetchCredentials(true);
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
   }, [fetchCredentials]);
 
   return (
