@@ -267,6 +267,8 @@ interface StoredCredentialRaw {
   id: string;
   type: string[];
   issuer: string;
+  format?: string;
+  data?: string;
   issuedAt?: number;
   expiresAt?: number;
   metadata?: {
@@ -280,6 +282,49 @@ interface StoredCredentialRaw {
     }>;
     nameSpaces?: Record<string, Record<string, unknown>>;
   };
+}
+
+/**
+ * Parse an SD-JWT (header.payload.sig~disc1~disc2~…) and return a flat map
+ * of all user-facing claims — both inline payload claims and selective disclosures.
+ * Internal JWT fields (iss, vct, cnf, _sd*, status, …) are omitted.
+ */
+function parseSdJwtClaims(token: string): Record<string, unknown> | undefined {
+  try {
+    const SKIP = new Set(['iss', 'sub', 'iat', 'exp', 'nbf', 'jti', 'vct', 'cnf', 'status', '_sd', '_sd_alg']);
+
+    const b64decode = (s: string) => {
+      const padded = s + '='.repeat((4 - (s.length % 4)) % 4);
+      return atob(padded.replace(/-/g, '+').replace(/_/g, '/'));
+    };
+
+    const parts = token.split('~');
+    const jwtParts = parts[0].split('.');
+    if (jwtParts.length < 2) return undefined;
+
+    const payload = JSON.parse(b64decode(jwtParts[1])) as Record<string, unknown>;
+    const claims: Record<string, unknown> = {};
+
+    // Inline payload claims (skip internal fields)
+    for (const [k, v] of Object.entries(payload)) {
+      if (!SKIP.has(k)) claims[k] = v;
+    }
+
+    // Selective disclosures: [salt, claimName, claimValue]
+    for (const disc of parts.slice(1)) {
+      if (!disc) continue;
+      try {
+        const decoded = JSON.parse(b64decode(disc)) as unknown[];
+        if (Array.isArray(decoded) && decoded.length === 3) {
+          claims[decoded[1] as string] = decoded[2];
+        }
+      } catch { /* malformed disclosure — skip */ }
+    }
+
+    return Object.keys(claims).length > 0 ? claims : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -301,6 +346,11 @@ export async function fetchStoredCredentials(token: string): Promise<Credential[
 
     const docType = item.type[0] ?? '';
 
+    const credentialSubject =
+      item.format === 'sd_jwt_vc' && item.data
+        ? parseSdJwtClaims(item.data)
+        : undefined;
+
     return {
       id: item.id,
       type: item.type,
@@ -314,6 +364,7 @@ export async function fetchStoredCredentials(token: string): Promise<Credential[
         : undefined,
       status: item.expiresAt && nowSec > item.expiresAt ? 'expired' : 'active',
       namespaces: item.metadata?.nameSpaces,
+      credentialSubject,
       displayMetadata: display
         ? {
             backgroundColor: display.background_color,
