@@ -281,6 +281,7 @@ interface StoredCredentialRaw {
       logo?: { uri?: string };
     }>;
     nameSpaces?: Record<string, Record<string, unknown>>;
+    statusRef?: { idx: number; uri: string };
   };
 }
 
@@ -385,9 +386,25 @@ async function fetchStatusListData(uri: string): Promise<{ bits: number; data: U
 }
 
 /**
- * Returns true if the SD-JWT token's status_list entry indicates the credential
- * is not valid (revoked / suspended). Returns false on any error or absence of
- * a status claim — fail-open so valid credentials are never incorrectly blocked.
+ * Read the status entry at `idx` from a fetched status list.
+ * Returns true (= not valid) when the value is non-zero. Fail-open on error.
+ */
+async function isStatusListEntryRevoked(idx: number, uri: string): Promise<boolean> {
+  try {
+    const slData = await fetchStatusListData(uri);
+    if (!slData) return false;
+    const bitPos = idx * slData.bits;
+    const byte = slData.data[Math.floor(bitPos / 8)] ?? 0;
+    const mask = (1 << slData.bits) - 1;
+    return ((byte >> (bitPos % 8)) & mask) !== 0;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Extract the status_list reference from an SD-JWT payload and check it.
+ * Fail-open: returns false on any error or if no status claim is present.
  */
 async function isSdJwtRevoked(token: string): Promise<boolean> {
   try {
@@ -403,14 +420,7 @@ async function isSdJwtRevoked(token: string): Promise<boolean> {
       | undefined;
     if (!sl?.uri || sl.idx === undefined) return false;
 
-    const slData = await fetchStatusListData(sl.uri);
-    if (!slData) return false;
-
-    const bitPos = sl.idx * slData.bits;
-    const byte = slData.data[Math.floor(bitPos / 8)] ?? 0;
-    const mask = (1 << slData.bits) - 1;
-    const statusVal = (byte >> (bitPos % 8)) & mask;
-    return statusVal !== 0; // 0 = VALID, anything else = revoked/suspended
+    return isStatusListEntryRevoked(sl.idx, sl.uri);
   } catch {
     return false;
   }
@@ -446,6 +456,14 @@ export async function fetchStoredCredentials(token: string): Promise<Credential[
     // Check Token Status List revocation for SD-JWT credentials
     if (status === 'active' && item.format === 'sd_jwt_vc' && item.data) {
       if (await isSdJwtRevoked(item.data)) status = 'revoked';
+    }
+
+    // Check Token Status List revocation for mDoc credentials (statusRef in metadata)
+    if (status === 'active' && item.format === 'mso_mdoc') {
+      const ref = item.metadata?.statusRef;
+      if (ref?.uri && ref.idx !== undefined) {
+        if (await isStatusListEntryRevoked(ref.idx, ref.uri)) status = 'revoked';
+      }
     }
 
     return {
