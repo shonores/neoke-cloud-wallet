@@ -327,6 +327,95 @@ function parseSdJwtClaims(token: string): Record<string, unknown> | undefined {
   }
 }
 
+// ── Token Status List (RFC 9596) ─────────────────────────────
+// Cache: uri → { bits-per-entry, decompressed byte array, fetched timestamp }
+const _statusListCache = new Map<string, { bits: number; data: Uint8Array; fetchedAt: number }>();
+const STATUS_LIST_CACHE_MS = 5 * 60 * 1000; // 5 minutes
+
+async function fetchStatusListData(uri: string): Promise<{ bits: number; data: Uint8Array } | undefined> {
+  const cached = _statusListCache.get(uri);
+  if (cached && Date.now() - cached.fetchedAt < STATUS_LIST_CACHE_MS) {
+    return { bits: cached.bits, data: cached.data };
+  }
+  try {
+    const resp = await fetch(uri, {
+      headers: { Accept: 'application/statuslist+jwt, application/jwt, */*' },
+      cache: 'no-store',
+    });
+    if (!resp.ok) return undefined;
+
+    const b64url = (s: string) =>
+      atob((s + '='.repeat((4 - (s.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+
+    const jwt = await resp.text();
+    const jwtParts = jwt.split('.');
+    if (jwtParts.length < 2) return undefined;
+
+    const payload = JSON.parse(b64url(jwtParts[1])) as Record<string, unknown>;
+    const sl = payload['status_list'] as Record<string, unknown> | undefined;
+    if (!sl) return undefined;
+
+    const bits = (sl['bits'] as number) ?? 1;
+    const lst = sl['lst'] as string;
+    const compressed = Uint8Array.from(b64url(lst), (c) => c.charCodeAt(0));
+
+    // ZLIB-decompress via DecompressionStream (supported in all modern browsers)
+    const ds = new DecompressionStream('deflate');
+    const writer = ds.writable.getWriter();
+    const reader = ds.readable.getReader();
+    writer.write(compressed);
+    writer.close();
+
+    const chunks: Uint8Array[] = [];
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+    const total = chunks.reduce((n, c) => n + c.length, 0);
+    const data = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { data.set(c, off); off += c.length; }
+
+    _statusListCache.set(uri, { bits, data, fetchedAt: Date.now() });
+    return { bits, data };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Returns true if the SD-JWT token's status_list entry indicates the credential
+ * is not valid (revoked / suspended). Returns false on any error or absence of
+ * a status claim — fail-open so valid credentials are never incorrectly blocked.
+ */
+async function isSdJwtRevoked(token: string): Promise<boolean> {
+  try {
+    const b64url = (s: string) =>
+      atob((s + '='.repeat((4 - (s.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+
+    const jwtParts = token.split('~')[0].split('.');
+    if (jwtParts.length < 2) return false;
+
+    const payload = JSON.parse(b64url(jwtParts[1])) as Record<string, unknown>;
+    const sl = (payload['status'] as Record<string, unknown> | undefined)?.['status_list'] as
+      | { idx: number; uri: string }
+      | undefined;
+    if (!sl?.uri || sl.idx === undefined) return false;
+
+    const slData = await fetchStatusListData(sl.uri);
+    if (!slData) return false;
+
+    const bitPos = sl.idx * slData.bits;
+    const byte = slData.data[Math.floor(bitPos / 8)] ?? 0;
+    const mask = (1 << slData.bits) - 1;
+    const statusVal = (byte >> (bitPos % 8)) & mask;
+    return statusVal !== 0; // 0 = VALID, anything else = revoked/suspended
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Fetch stored credentials from the server — returns full credential data
  * including field values (nameSpaces) and display metadata.
@@ -339,7 +428,7 @@ export async function fetchStoredCredentials(token: string): Promise<Credential[
   const raw = resp.credentials ?? [];
   const nowSec = Math.floor(Date.now() / 1000);
 
-  return raw.map((item) => {
+  return Promise.all(raw.map(async (item) => {
     const display =
       item.metadata?.credentialDisplay?.find((d) => d.locale?.startsWith('en')) ??
       item.metadata?.credentialDisplay?.[0];
@@ -350,6 +439,14 @@ export async function fetchStoredCredentials(token: string): Promise<Credential[
       item.format === 'sd_jwt_vc' && item.data
         ? parseSdJwtClaims(item.data)
         : undefined;
+
+    let status: import('../types').CredentialStatus =
+      item.expiresAt && nowSec > item.expiresAt ? 'expired' : 'active';
+
+    // Check Token Status List revocation for SD-JWT credentials
+    if (status === 'active' && item.format === 'sd_jwt_vc' && item.data) {
+      if (await isSdJwtRevoked(item.data)) status = 'revoked';
+    }
 
     return {
       id: item.id,
@@ -362,7 +459,7 @@ export async function fetchStoredCredentials(token: string): Promise<Credential[
       expirationDate: item.expiresAt
         ? new Date(item.expiresAt * 1000).toISOString()
         : undefined,
-      status: item.expiresAt && nowSec > item.expiresAt ? 'expired' : 'active',
+      status,
       namespaces: item.metadata?.nameSpaces,
       credentialSubject,
       displayMetadata: display
@@ -375,7 +472,7 @@ export async function fetchStoredCredentials(token: string): Promise<Credential[
           }
         : undefined,
     } as Credential;
-  });
+  }));
 }
 
 // ============================================================
