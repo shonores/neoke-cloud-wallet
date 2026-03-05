@@ -74,9 +74,10 @@ export class ApiError extends Error {
 }
 
 function friendlyError(status: number, body: unknown): string {
+  const b = typeof body === 'object' && body !== null ? body as Record<string, unknown> : null;
   const detail =
-    typeof body === 'object' && body !== null && 'message' in body
-      ? String((body as Record<string, unknown>).message)
+    b
+      ? String(b['message'] ?? b['error'] ?? b['detail'] ?? b['description'] ?? '')
       : '';
 
   switch (status) {
@@ -134,6 +135,7 @@ async function request<T>(
     } catch {
       body = null;
     }
+    console.error(`[neoke] API ${response.status} on ${path}:`, JSON.stringify(body));
     throw new ApiError(friendlyError(response.status, body), response.status, body);
   }
 
@@ -731,12 +733,16 @@ export async function previewPresentationWithRetry(
   token: string,
   requestUri: string,
 ): Promise<{ data: VPPreviewResponse; skippedX509: boolean }> {
+  console.log('[neoke] previewPresentation attempt 1, uri:', requestUri);
   try {
     const data = await previewPresentation(token, requestUri);
+    console.log('[neoke] previewPresentation attempt 1 succeeded');
     return { data, skippedX509: false };
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) throw err;
+    console.log('[neoke] previewPresentation attempt 1 failed:', (err as Error).message, '— retrying with skipX509ChainValidation');
     const data = await previewPresentation(token, requestUri, true);
+    console.log('[neoke] previewPresentation attempt 2 (skipX509) succeeded');
     return { data, skippedX509: true };
   }
 }
