@@ -180,6 +180,9 @@ function AppInner() {
   // Reset state on login/logout; consume deep-link if present
   useEffect(() => {
     if (state.token) {
+      // Log here so deepLinkUri is visible in the console after the user logs in
+      console.log('[neoke:deeplink] *** token set, deepLinkUri:', deepLinkUri, '| type:', deepLinkType);
+      console.log('[neoke:deeplink] *** window.location.href at this point:', window.location.href);
       if (deepLinkUri && !deepLinkConsumed.current && deepLinkType !== 'unknown') {
         deepLinkConsumed.current = true;
         // Clean up the URL so a refresh doesn't re-trigger the flow
