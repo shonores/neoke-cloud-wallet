@@ -15,7 +15,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import CredentialThumbnail from '../components/CredentialThumbnail';
-import type { Credential, ViewName } from '../types';
+import type { Credential, VPPreviewResponse, ViewName } from '../types';
 
 type Stage = 'scan' | 'loading' | 'select' | 'consent' | 'presenting' | 'success' | 'error';
 
