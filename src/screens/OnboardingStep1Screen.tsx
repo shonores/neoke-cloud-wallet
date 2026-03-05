@@ -5,10 +5,12 @@ import PrimaryButton from '../components/PrimaryButton';
 interface OnboardingStep1Props {
   /** Pre-fills the input from localStorage (remembered node name). */
   savedNodeId: string;
+  /** When set, shows a contextual banner explaining why the wallet was opened. */
+  pendingAction?: 'receive' | 'present' | null;
   onContinue: (nodeIdentifier: string, baseUrl: string) => void;
 }
 
-export default function OnboardingStep1Screen({ savedNodeId, onContinue }: OnboardingStep1Props) {
+export default function OnboardingStep1Screen({ savedNodeId, pendingAction, onContinue }: OnboardingStep1Props) {
   const [nodeId, setNodeId] = useState(savedNodeId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -44,6 +46,20 @@ export default function OnboardingStep1Screen({ savedNodeId, onContinue }: Onboa
           Enter your wallet node identifier to connect.
         </p>
       </div>
+
+      {/* Deep-link context banner */}
+      {pendingAction && (
+        <div className="mx-6 mb-4 bg-[#5B4FE9]/10 border border-[#5B4FE9]/20 rounded-2xl px-4 py-3">
+          <p className="text-[13px] font-semibold text-[#5B4FE9]">
+            {pendingAction === 'receive' ? 'Credential offer waiting' : 'Verification request waiting'}
+          </p>
+          <p className="text-[12px] text-[#5B4FE9]/80 mt-0.5">
+            {pendingAction === 'receive'
+              ? 'Log in to receive your credential.'
+              : 'Log in to respond to this verification request.'}
+          </p>
+        </div>
+      )}
 
       {/* Form */}
       <div className="px-6">

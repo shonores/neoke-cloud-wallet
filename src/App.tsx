@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import DashboardScreen from './screens/DashboardScreen';
@@ -9,6 +9,7 @@ import AccountScreen from './screens/AccountScreen';
 import OnboardingStep1Screen from './screens/OnboardingStep1Screen';
 import OnboardingStep2Screen from './screens/OnboardingStep2Screen';
 import ReAuthModal from './components/ReAuthModal';
+import { detectUriType } from './utils/uriRouter';
 import type { ViewName, Credential } from './types';
 
 // ============================================================
@@ -111,14 +112,17 @@ function AppInner() {
     try { return localStorage.getItem('neoke_node_id') ?? ''; } catch { return ''; }
   });
 
-  // Reset state on login/logout transitions
-  useEffect(() => {
-    if (state.token) {
-      setCurrentView('dashboard');   // always land on home after login
-    } else {
-      setOnboardingStep(1);          // always go back to Step 1 after logout
-    }
-  }, [state.token]);
+  // ── Deep-link detection ──────────────────────────────────────────────────
+  // Read once on mount from the URL query string. Accepts:
+  //   ?uri=openid-credential-offer://...   (issuance)
+  //   ?uri=openid4vp://...                 (verification)
+  //   ?offer_uri=...  / ?request_uri=...   (alternative param names)
+  const [deepLinkUri] = useState<string | null>(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get('uri') ?? p.get('offer_uri') ?? p.get('request_uri') ?? null;
+  });
+  const deepLinkType = deepLinkUri ? detectUriType(deepLinkUri) : null;
+  const deepLinkConsumed = useRef(false);
 
   // Authenticated navigation state
   const [currentView,        setCurrentView]        = useState<ViewName>('dashboard');
@@ -135,7 +139,27 @@ function AppInner() {
     setCurrentView(view);
   };
 
-  // ── Session expired → re-auth sheet ───────────────────────────────────────
+  // Reset state on login/logout; consume deep-link if present
+  useEffect(() => {
+    if (state.token) {
+      if (deepLinkUri && !deepLinkConsumed.current && deepLinkType !== 'unknown') {
+        deepLinkConsumed.current = true;
+        // Clean up the URL so a refresh doesn't re-trigger the flow
+        window.history.replaceState({}, '', window.location.pathname);
+        if (deepLinkType === 'receive') {
+          navigate('receive', { pendingUri: deepLinkUri });
+        } else {
+          navigate('present', { pendingUri: deepLinkUri });
+        }
+        return;
+      }
+      setCurrentView('dashboard');
+    } else {
+      setOnboardingStep(1);
+    }
+  }, [state.token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Session expired → re-auth sheet ─────────────────────────────────────
   if (state.sessionExpired) {
     return (
       <div className="w-full max-w-lg mx-auto min-h-screen bg-[#F2F2F7]">
@@ -144,7 +168,7 @@ function AppInner() {
     );
   }
 
-  // ── Not authenticated → two-step onboarding ───────────────────────────────
+  // ── Not authenticated → two-step onboarding ──────────────────────────────
   if (!state.token) {
     if (onboardingStep === 2) {
       return (
@@ -165,6 +189,11 @@ function AppInner() {
       <div className="w-full max-w-lg mx-auto">
         <OnboardingStep1Screen
           savedNodeId={savedNodeId}
+          pendingAction={
+            deepLinkType === 'receive' ? 'receive'
+            : deepLinkType === 'present' ? 'present'
+            : null
+          }
           onContinue={(nodeId, baseUrl) => {
             setPendingNodeId(nodeId);
             setPendingBaseUrl(baseUrl);
@@ -175,7 +204,7 @@ function AppInner() {
     );
   }
 
-  // ── Authenticated — main wallet ────────────────────────────────────────────
+  // ── Authenticated — main wallet ──────────────────────────────────────────
   const showTabBar = currentView === 'dashboard' || currentView === 'account';
 
   return (
