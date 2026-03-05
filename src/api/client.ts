@@ -729,11 +729,28 @@ export async function previewPresentation(
  * First attempt: normal. If it fails (non-401), retries with skipX509ChainValidation.
  * Returns the preview data and whether the X.509 skip was used (needed for respond).
  */
+/**
+ * The Neoke server sends a bare POST when request_uri_method=post is present,
+ * but the verifier (Hopae) requires application/x-www-form-urlencoded + wallet_metadata.
+ * The verifier's GET endpoint works fine, so strip the param to let the server use GET.
+ */
+function normalizeVpUri(uri: string): string {
+  return uri
+    .replace(/&request_uri_method=[^&]*/i, '')   // mid/end param
+    .replace(/\?request_uri_method=[^&]*&/i, '?') // first param with others following
+    .replace(/\?request_uri_method=[^&]*$/i, ''); // first and only param
+}
+
 export async function previewPresentationWithRetry(
   token: string,
   requestUri: string,
 ): Promise<{ data: VPPreviewResponse; skippedX509: boolean }> {
-  console.log('[neoke] previewPresentation attempt 1, uri:', requestUri);
+  const normalizedUri = normalizeVpUri(requestUri);
+  if (normalizedUri !== requestUri) {
+    console.log('[neoke] stripped request_uri_method from VP URI');
+  }
+  console.log('[neoke] previewPresentation attempt 1, uri:', normalizedUri);
+  requestUri = normalizedUri;
   try {
     const data = await previewPresentation(token, requestUri);
     console.log('[neoke] previewPresentation attempt 1 succeeded');
