@@ -792,13 +792,14 @@ export async function respondPresentationWithRetry(
   selections?: Record<string, number>,
   alreadySkippedX509?: boolean,
 ): Promise<VPRespondResponse> {
+  const uri = normalizeVpUri(requestUri);
   if (alreadySkippedX509) {
-    return respondPresentation(token, requestUri, selections, true);
+    return respondPresentation(token, uri, selections, true);
   }
   try {
-    return await respondPresentation(token, requestUri, selections, false);
+    return await respondPresentation(token, uri, selections, false);
   } catch (err) {
     if (err instanceof ApiError && err.status === 401) throw err;
-    return respondPresentation(token, requestUri, selections, true);
+    return respondPresentation(token, uri, selections, true);
   }
 }
