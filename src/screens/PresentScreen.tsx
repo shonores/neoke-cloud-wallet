@@ -97,10 +97,13 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
   };
 
   const processPresentUri = useCallback(async (uri: string) => {
-    if (!state.token) return;
+    console.log('[neoke:present] processPresentUri called, uri:', uri);
+    if (!state.token) { console.log('[neoke:present] no token, aborting'); return; }
     const trimmed = uri.trim();
+    console.log('[neoke:present] trimmed uri:', trimmed);
 
     const uriType = detectUriType(trimmed);
+    console.log('[neoke:present] uriType:', uriType);
     if (uriType === 'receive') {
       navigate('receive', { pendingUri: trimmed });
       return;
@@ -116,6 +119,7 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
     setSkippedX509(false);
     setSelections({});
     setCurrentRequestUri(trimmed);
+    console.log('[neoke:present] calling previewPresentationWithRetry...');
 
     try {
       const { data, skippedX509: usedSkip } = await previewPresentationWithRetry(state.token, trimmed);

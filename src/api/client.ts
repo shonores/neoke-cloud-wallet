@@ -115,19 +115,25 @@ async function request<T>(
     throw new ApiError('No wallet node is configured. Please log in first.');
   }
 
+  const url = `${_baseUrl}${path}`;
+  console.log(`[neoke:request] ${fetchOptions.method ?? 'GET'} ${url}`);
+  if (fetchOptions.body) console.log(`[neoke:request] body:`, fetchOptions.body);
+
   let response: Response;
   try {
-    response = await fetch(`${_baseUrl}${path}`, {
+    response = await fetch(url, {
       ...fetchOptions,
       headers,
       cache: 'no-store', // never serve a cached response for wallet API calls
     });
-  } catch {
+  } catch (e) {
+    console.error(`[neoke:request] network error on ${url}:`, e);
     throw new ApiError(
       'Unable to connect to the wallet server. Please check your network and try again.'
     );
   }
 
+  console.log(`[neoke:request] response status: ${response.status}`);
   if (!response.ok) {
     let body: unknown;
     try {
@@ -135,7 +141,7 @@ async function request<T>(
     } catch {
       body = null;
     }
-    console.error(`[neoke] API ${response.status} on ${path}:`, JSON.stringify(body));
+    console.error(`[neoke:request] ERROR ${response.status} on ${path}:`, JSON.stringify(body));
     throw new ApiError(friendlyError(response.status, body), response.status, body);
   }
 
