@@ -722,6 +722,25 @@ export async function previewPresentation(
   });
 }
 
+/**
+ * Preview a VP request with automatic X.509 retry.
+ * First attempt: normal. If it fails (non-401), retries with skipX509ChainValidation.
+ * Returns the preview data and whether the X.509 skip was used (needed for respond).
+ */
+export async function previewPresentationWithRetry(
+  token: string,
+  requestUri: string,
+): Promise<{ data: VPPreviewResponse; skippedX509: boolean }> {
+  try {
+    const data = await previewPresentation(token, requestUri);
+    return { data, skippedX509: false };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) throw err;
+    const data = await previewPresentation(token, requestUri, true);
+    return { data, skippedX509: true };
+  }
+}
+
 export async function respondPresentation(
   token: string,
   requestUri: string,
@@ -737,4 +756,26 @@ export async function respondPresentation(
       ...(skipX509ChainValidation ? { skipX509ChainValidation: true } : {}),
     }),
   });
+}
+
+/**
+ * Respond to a VP request with automatic X.509 retry.
+ * If the preview already skipped X.509, uses the skip directly.
+ * Otherwise, first attempts without skip; on failure retries with skip.
+ */
+export async function respondPresentationWithRetry(
+  token: string,
+  requestUri: string,
+  selections?: Record<string, number>,
+  alreadySkippedX509?: boolean,
+): Promise<VPRespondResponse> {
+  if (alreadySkippedX509) {
+    return respondPresentation(token, requestUri, selections, true);
+  }
+  try {
+    return await respondPresentation(token, requestUri, selections, false);
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 401) throw err;
+    return respondPresentation(token, requestUri, selections, true);
+  }
 }

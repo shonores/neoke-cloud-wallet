@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { previewPresentation, respondPresentation, ApiError } from '../api/client';
+import { previewPresentationWithRetry, respondPresentationWithRetry, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { detectUriType } from '../utils/uriRouter';
 import {
@@ -15,7 +15,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
 import CredentialThumbnail from '../components/CredentialThumbnail';
-import type { Credential, VPPreviewResponse, ViewName } from '../types';
+import type { Credential, ViewName } from '../types';
 
 type Stage = 'scan' | 'loading' | 'select' | 'consent' | 'presenting' | 'success' | 'error';
 
@@ -83,7 +83,7 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
   const [error, setError] = useState('');
   const [skippedX509, setSkippedX509] = useState(false);
   const [selections, setSelections] = useState<Record<string, number>>({});
-  const [successResult, setSuccessResult] = useState<{ redirectUri?: string; skippedX509?: boolean } | null>(null);
+  const [successResult, setSuccessResult] = useState<{ redirectUri?: string } | null>(null);
 
   // Find the best local credential match for a VP candidate so thumbnails use
   // per-credential display metadata (colors, logo) rather than type-only defaults.
@@ -117,15 +117,15 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
     setSelections({});
     setCurrentRequestUri(trimmed);
 
-    // Helper: validate and apply the preview response
-    const applyPreview = (data: VPPreviewResponse, usedSkip: boolean) => {
+    try {
+      const { data, skippedX509: usedSkip } = await previewPresentationWithRetry(state.token, trimmed);
       const hasAnyCandidate = data.queries?.some((q) => q.candidates?.length > 0);
       if (!data.queries || data.queries.length === 0 || !hasAnyCandidate) {
         setError(
           "No matching credential found. The verifier is requesting a credential type that isn't in your wallet yet. Try receiving the required credential first."
         );
         setStage('error');
-        return false;
+        return;
       }
       // Pre-fill selections with the first candidate for each query
       const initialSelections: Record<string, number> = {};
@@ -138,33 +138,17 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
       // Go to selection screen only when at least one query has multiple candidates
       const needsSelection = data.queries.some((q) => (q.candidates?.length ?? 0) > 1);
       setStage(needsSelection ? 'select' : 'consent');
-      return true;
-    };
-
-    try {
-      const data = await previewPresentation(state.token, trimmed);
-      applyPreview(data, false);
-    } catch (firstErr) {
-      if (firstErr instanceof ApiError && firstErr.status === 401) {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
         markExpired();
         return;
       }
-      // Silently retry without X.509 chain validation
-      try {
-        const data = await previewPresentation(state.token, trimmed, true);
-        applyPreview(data, true);
-      } catch (retryErr) {
-        if (retryErr instanceof ApiError && retryErr.status === 401) {
-          markExpired();
-          return;
-        }
-        setError(
-          retryErr instanceof Error
-            ? retryErr.message
-            : 'Unable to process the presentation request. Please check your network connection and try again.'
-        );
-        setStage('error');
-      }
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to process the presentation request. Please check your network connection and try again.'
+      );
+      setStage('error');
     }
   }, [state.token, navigate, markExpired]);
 
@@ -178,32 +162,17 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
     setStage('presenting');
     const activeSelections = Object.keys(selections).length > 0 ? selections : undefined;
     try {
-      const result = await respondPresentation(state.token, currentRequestUri, activeSelections, skippedX509);
-      setSuccessResult({ redirectUri: result.redirectUri, skippedX509 });
+      const result = await respondPresentationWithRetry(state.token, currentRequestUri, activeSelections, skippedX509);
+      setSuccessResult({ redirectUri: result.redirectUri });
       setStage('success');
-    } catch (firstErr) {
-      if (firstErr instanceof ApiError && firstErr.status === 401) {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
         markExpired();
         return;
       }
-      // If we haven't already skipped X.509, silently retry without chain validation
-      if (!skippedX509) {
-        try {
-          const result = await respondPresentation(state.token, currentRequestUri, activeSelections, true);
-          setSkippedX509(true);
-          setSuccessResult({ redirectUri: result.redirectUri, skippedX509: true });
-          setStage('success');
-          return;
-        } catch (retryErr) {
-          if (retryErr instanceof ApiError && retryErr.status === 401) {
-            markExpired();
-            return;
-          }
-        }
-      }
       setError(
-        firstErr instanceof Error
-          ? `Presentation failed: ${firstErr.message}`
+        err instanceof Error
+          ? `Presentation failed: ${err.message}`
           : 'Presentation failed. The verifier could not verify your credential.'
       );
       setStage('error');
