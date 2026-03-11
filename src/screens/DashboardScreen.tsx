@@ -3,8 +3,10 @@ import { discoverWalletCredentials, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { getLocalCredentials, mergeWithLocalCredentials } from '../store/localCredentials';
 import CredentialStack from '../components/CredentialStack';
-import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
+import Layout from '../components/Layout';
+import PageHeader from '../components/PageHeader';
+import SkeletonCards from '../components/SkeletonCards';
 import type { Credential } from '../types';
 import type { ViewName } from '../types';
 
@@ -112,29 +114,25 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
   }, [fetchCredentials]);
 
   return (
-    <div className="flex-1 flex flex-col bg-[#F2F2F7] min-h-screen">
+    <Layout>
+      <PageHeader
+        title="Neoke wallet"
+        subtitle={
+          usingLocalFallback ? (
+            <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600">
+              Offline Mode
+            </span>
+          ) : undefined
+        }
+      />
 
-      {/* Header */}
-      <header className="px-5 pt-12 pb-4 flex items-start justify-between">
-        <h1 className="text-[28px] font-bold text-[#1c1c1e] leading-tight">
-          Neoke wallet
-        </h1>
-        {usingLocalFallback && (
-          <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full mt-2">
-            offline
-          </span>
-        )}
-      </header>
-
-      {/* Content — no overflow-y-auto here; let viewport scroll so no scrollbar width is stolen from card container */}
       <main className="flex-1 pb-28">
-
         {loading ? (
-          <div className="px-5 flex items-center justify-center pt-16">
-            <div className="text-center space-y-3">
-              <LoadingSpinner size="lg" className="mx-auto" />
-              <p className="text-[#8e8e93] text-sm">Loading credentials…</p>
-            </div>
+          <div className="px-5 pt-8">
+            <SkeletonCards count={3} />
+            <p className="text-center text-[#8e8e93] text-[13px] mt-6 animate-pulse">
+              Syncing your secure vault…
+            </p>
           </div>
 
         ) : error ? (
@@ -142,33 +140,31 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
             <ErrorMessage message={error} />
             <button
               onClick={() => fetchCredentials()}
-              className="mt-4 w-full bg-white hover:bg-[#e5e5ea] text-[#1c1c1e] text-[15px] py-3 rounded-2xl transition-colors shadow-sm border border-black/5"
+              className="mt-6 w-full bg-white hover:bg-[#e5e5ea] text-[#1c1c1e] text-[15px] font-semibold py-4 rounded-[20px] transition-all shadow-sm border border-black/[0.04]"
             >
               Try again
             </button>
           </div>
 
         ) : credentials.length === 0 ? (
-          /* Empty state — matches No_credential.PNG */
-          <div className="px-4 pt-2">
-            <div className="bg-white rounded-3xl p-5 shadow-sm">
-              {/* Passport / document line icon */}
-              <div className="w-11 h-11 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-                  <rect x="4" y="3" width="16" height="18" rx="2" stroke="#5B4FE9" strokeWidth="1.6" />
-                  <circle cx="12" cy="10" r="3" stroke="#5B4FE9" strokeWidth="1.4" />
-                  <path d="M7 17c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="#5B4FE9" strokeWidth="1.4" strokeLinecap="round" />
+          <div className="px-5 pt-4">
+            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-black/[0.02] text-center">
+              <div className="w-16 h-16 rounded-3xl bg-[#5B4FE9]/5 flex items-center justify-center mx-auto mb-6">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <rect x="4" y="3" width="16" height="18" rx="3" stroke="#5B4FE9" strokeWidth="1.5" />
+                  <circle cx="12" cy="10" r="3.5" stroke="#5B4FE9" strokeWidth="1.5" />
+                  <path d="M7 18c0-2.5 2.2-4.5 5-4.5s5 2 5 4.5" stroke="#5B4FE9" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
               </div>
-              <h2 className="text-[17px] font-bold text-[#1c1c1e] mb-1.5">
-                No credentials yet
+              <h2 className="text-[20px] font-bold text-[#1c1c1e] mb-2">
+                Your wallet is empty
               </h2>
-              <p className="text-[14px] text-[#8e8e93] mb-5 leading-relaxed">
-                Scan a QR code or paste a credential offer link to add your first credential.
+              <p className="text-[15px] text-[#8e8e93] mb-8 leading-relaxed max-w-[240px] mx-auto">
+                Scan a secure QR code to safely add your credentials here.
               </p>
               <button
                 onClick={() => navigate('receive')}
-                className="text-white text-[15px] font-semibold px-6 py-3 rounded-full transition-opacity active:opacity-80"
+                className="w-full text-white text-[16px] font-bold px-8 py-4 rounded-[18px] transition-all active:scale-[0.98] shadow-lg shadow-[#5B4FE9]/20"
                 style={{ backgroundColor: '#5B4FE9' }}
               >
                 Add credential
@@ -177,23 +173,18 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
           </div>
 
         ) : (
-          /*
-            Card wrapper — px-4 gives 16px margin on each side.
-            This makes cards 16px inset from screen edge on both home and detail,
-            so both cards render at identical widths.
-          */
-          <div className="pt-2 px-4">
+          <div className="pt-2 px-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
             <CredentialStack
               credentials={[...credentials].sort((a, b) => {
                 const aT = a.issuanceDate ? new Date(a.issuanceDate).getTime() : 0;
                 const bT = b.issuanceDate ? new Date(b.issuanceDate).getTime() : 0;
-                return bT - aT; // newest first; CredentialStack reverses → newest at front
+                return bT - aT; // newest first
               })}
               onSelectCredential={(c) => navigate('detail', { selectedCredential: c })}
             />
           </div>
         )}
       </main>
-    </div>
+    </Layout>
   );
 }

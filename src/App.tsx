@@ -58,13 +58,8 @@ function TabBar({
         aria-label="Scan QR Code"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <rect x="3"   y="3"   width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.7" fill={scanActive ? 'currentColor' : 'none'} fillOpacity={scanActive ? 0.12 : 0} />
-          <rect x="13"  y="3"   width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.7" fill={scanActive ? 'currentColor' : 'none'} fillOpacity={scanActive ? 0.12 : 0} />
-          <rect x="3"   y="13"  width="8" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.7" fill={scanActive ? 'currentColor' : 'none'} fillOpacity={scanActive ? 0.12 : 0} />
-          <rect x="13"   y="13"   width="3.5" height="3.5" rx="0.5" fill="currentColor" />
-          <rect x="17.5" y="13"   width="3.5" height="3.5" rx="0.5" fill="currentColor" />
-          <rect x="13"   y="17.5" width="3.5" height="3.5" rx="0.5" fill="currentColor" />
-          <rect x="17.5" y="17.5" width="3.5" height="3.5" rx="0.5" fill="currentColor" />
+          <path d="M3 9V5a2 2 0 012-2h4M15 3h4a2 2 0 012 2v4M21 15v4a2 2 0 01-2 2h-4M9 21H5a2 2 0 01-2-2v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <rect x="7" y="7" width="10" height="10" rx="1" stroke="currentColor" strokeWidth="1.5" />
         </svg>
         <span className="text-[10px] font-medium">Scan QR Code</span>
       </button>
