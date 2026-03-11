@@ -40,8 +40,12 @@ export function clearLocalCredentials(): void {
 export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential[] {
   const local = getLocalCredentials();
 
-  // Don't overwrite local data when discovery returns nothing
-  if (serverCreds.length === 0) return local;
+  // AUTHENTICATED EMPTY STATE: If serverCreds is empty, we must return empty
+  // and clear the local store to remain in sync with the server.
+  if (serverCreds.length === 0) {
+    localStorage.removeItem(STORAGE_KEY);
+    return [];
+  }
 
   const merged = serverCreds.map((serverCred) => {
     // Match by exact credential ID first (most precise)

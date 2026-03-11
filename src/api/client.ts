@@ -400,12 +400,16 @@ async function fetchStatusListData(uri: string): Promise<{ bits: number; data: U
 async function isStatusListEntryRevoked(idx: number, uri: string): Promise<boolean> {
   try {
     const slData = await fetchStatusListData(uri);
-    if (!slData) return false;
+    if (!slData) {
+      console.warn(`[neoke:status] Could not fetch status list at ${uri}, failing open.`);
+      return false;
+    }
     const bitPos = idx * slData.bits;
     const byte = slData.data[Math.floor(bitPos / 8)] ?? 0;
     const mask = (1 << slData.bits) - 1;
     return ((byte >> (bitPos % 8)) & mask) !== 0;
-  } catch {
+  } catch (e) {
+    console.error(`[neoke:status] Error checking revocation for ${uri}:`, e);
     return false;
   }
 }

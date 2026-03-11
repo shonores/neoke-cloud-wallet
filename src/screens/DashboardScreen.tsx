@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { discoverWalletCredentials, ApiError } from '../api/client';
 import { useAuth } from '../context/AuthContext';
-import { getLocalCredentials, mergeWithLocalCredentials, clearLocalCredentials } from '../store/localCredentials';
+import { getLocalCredentials, mergeWithLocalCredentials } from '../store/localCredentials';
 import CredentialStack from '../components/CredentialStack';
 import LoadingSpinner from '../components/LoadingSpinner';
 import ErrorMessage from '../components/ErrorMessage';
@@ -37,14 +37,10 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
     try {
       const serverCreds = await discoverWalletCredentials(token);
       lastFetchRef.current = Date.now();
-      if (serverCreds.length === 0) {
-        // Server confirmed the wallet is empty — clear stale local cache
-        clearLocalCredentials();
-        setCredentials([]);
-      } else {
-        const merged = mergeWithLocalCredentials(serverCreds);
-        setCredentials(merged);
-      }
+      
+      // Authoritative update: sync with server results
+      const merged = mergeWithLocalCredentials(serverCreds);
+      setCredentials(merged);
     } catch (err) {
       // 401 means the bearer token has expired on the server — show re-auth UI,
       // never fall back to stale local data.
@@ -52,11 +48,16 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
         markExpired();
         return;
       }
+      
+      // Fall back to local data ONLY if we have some AND it's not the first fetch
+      // of the session (lastFetchRef.current > 0). This prevents ghosting on startup.
       const local = getLocalCredentials();
-      setCredentials(local);
-      if (local.length > 0) {
+      if (local.length > 0 && lastFetchRef.current > 0) {
+        setCredentials(local);
         setUsingLocalFallback(true);
-      } else {
+      } else if (lastFetchRef.current === 0) {
+        // Failed on first attempt — don't show ghosts, show error
+        setCredentials([]);
         setError('Unable to reach the wallet server. Please check your connection.');
       }
     } finally {
@@ -69,9 +70,11 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
     fetchCredentials();
   }, [fetchCredentials, refreshSignal]);
 
-  // Poll every 15 s — silent background refresh, no spinner.
+  // Poll every 15 s — silent background refresh (only if tab is visible), no spinner.
   useEffect(() => {
-    const id = setInterval(() => fetchCredentials(false), 15_000);
+    const id = setInterval(() => {
+      if (!document.hidden) void fetchCredentials(false);
+    }, 15_000);
     return () => clearInterval(id);
   }, [fetchCredentials]);
 

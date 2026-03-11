@@ -188,6 +188,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [state.token, state.expiresAt]);
 
   const setNode = useCallback((nodeIdentifier: string, baseUrl: string) => {
+    // Clear credentials from the previous node
+    clearLocalCredentials();
     dispatch({ type: 'SET_NODE', nodeIdentifier, baseUrl });
   }, []);
 
