@@ -51,16 +51,22 @@ export default function DashboardScreen({ navigate, refreshSignal }: DashboardSc
         return;
       }
       
-      // Fall back to local data ONLY if we have some AND it's not the first fetch
-      // of the session (lastFetchRef.current > 0). This prevents ghosting on startup.
       const local = getLocalCredentials();
-      if (local.length > 0 && lastFetchRef.current > 0) {
-        setCredentials(local);
-        setUsingLocalFallback(true);
-      } else if (lastFetchRef.current === 0) {
-        // Failed on first attempt — don't show ghosts, show error
+      const isFirstFetch = lastFetchRef.current === 0;
+
+      if (isFirstFetch) {
+        // CRITICAL: On the first fetch of the session, NEVER fall back to local storage.
+        // If the server cannot be reached, we show an error rather than risking "ghost"
+        // credentials from a previous session that might have been deleted on the server.
+        console.warn('[neoke:dashboard] first fetch failed — strictly denying local fallback to prevent ghosting.');
         setCredentials([]);
         setError('Unable to reach the wallet server. Please check your connection.');
+      } else {
+        // If we've already had a successful fetch this session, we can fall back to 
+        // local data if a subsequent background/poll fetch fails.
+        console.log(`[neoke:dashboard] background fetch failed, using local fallback (${local.length} items)`);
+        setCredentials(local);
+        setUsingLocalFallback(true);
       }
     } finally {
       setLoading(false);

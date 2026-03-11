@@ -574,15 +574,16 @@ export async function lookupDisplayMetadataForDocType(
  */
 export async function discoverWalletCredentials(token: string): Promise<Credential[]> {
   // Strategy 1: stored credentials endpoint (authoritative, includes field values).
-  // An empty response means the wallet genuinely has no credentials — trust it
-  // and return immediately rather than falling through to VP preview.
   try {
-    return await fetchStoredCredentials(token);
-  } catch {
-    // Network/auth error — fall through to VP preview as best-effort fallback
+    const stored = await fetchStoredCredentials(token);
+    console.log(`[neoke:discover] strategy 1 (stored) found ${stored.length} credentials`);
+    return stored;
+  } catch (err) {
+    console.warn('[neoke:discover] strategy 1 (stored) failed, falling back to VP preview:', err);
   }
 
   // Strategy 2: VP preview (stubs only — no field values)
+  // ... rest of the function ...
   // 1. Create a broad VP discovery request
   const vpResp = await request<{ invocationUrl: string }>('/:/auth/siop/request', {
     method: 'POST',

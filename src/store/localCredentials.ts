@@ -39,10 +39,12 @@ export function clearLocalCredentials(): void {
  */
 export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential[] {
   const local = getLocalCredentials();
+  console.log(`[neoke:sync] server reported ${serverCreds.length} credentials, local cache has ${local.length}`);
 
   // AUTHENTICATED EMPTY STATE: If serverCreds is empty, we must return empty
   // and clear the local store to remain in sync with the server.
   if (serverCreds.length === 0) {
+    console.log('[neoke:sync] clearing local cache: authoritative state is empty');
     localStorage.removeItem(STORAGE_KEY);
     return [];
   }
@@ -52,6 +54,7 @@ export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential
     const localMatch = local.find((lc) => lc.id === serverCred.id);
 
     if (localMatch) {
+      console.log(`[neoke:sync] found local match for ${serverCred.id}`);
       return {
         ...localMatch,
         id: serverCred.id,
@@ -63,12 +66,11 @@ export function mergeWithLocalCredentials(serverCreds: Credential[]): Credential
           (serverCred._availableClaims as string[] | undefined) ??
           (localMatch._availableClaims as string[] | undefined),
         namespaces: serverCred.namespaces ?? localMatch.namespaces,
-        // Server-parsed credentialSubject (e.g. SD-JWT claims) takes precedence
-        // over whatever the local copy has, which may be stale or empty.
         credentialSubject: serverCred.credentialSubject ?? localMatch.credentialSubject,
         displayMetadata: serverCred.displayMetadata ?? localMatch.displayMetadata,
       };
     }
+    console.log(`[neoke:sync] new credential from server: ${serverCred.id}`);
     return serverCred;
   });
 

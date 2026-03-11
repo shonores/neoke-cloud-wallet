@@ -64,7 +64,7 @@ export default function OnboardingStep2Screen({
         large
       />
 
-      <main className="flex-1 px-6 space-y-6">
+      <main className="flex-1 px-6 space-y-6 pb-44">
         <div className="animate-in fade-in slide-in-from-left-4 duration-500">
           <NodeStatusChip host={nodeHost} label="· verified" />
         </div>
@@ -87,7 +87,7 @@ export default function OnboardingStep2Screen({
       </main>
 
       {/* Pinned bottom area */}
-      <footer className="px-6 pb-10 pt-4 space-y-4">
+      <footer className="fixed bottom-0 left-0 right-0 max-w-lg mx-auto px-6 pb-10 pt-4 space-y-4 bg-[#F2F2F7] z-10 border-t border-black/[0.02]">
         <p className="text-center text-[13px] text-[#8e8e93] leading-relaxed px-4">
           By continuing, you agree to Neoke's <span className="text-[#5B4FE9] font-semibold">Terms and Conditions</span> and{' '}
           <span className="text-[#5B4FE9] font-semibold">Privacy Policy.</span>
