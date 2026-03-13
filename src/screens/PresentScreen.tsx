@@ -7,6 +7,7 @@ import {
   getCardColor,
   getCardColorForTypes,
   getCredentialLabel,
+  humanizeLabel,
   parseIssuerLabel,
 } from '../utils/credentialHelpers';
 import { getLocalCredentials } from '../store/localCredentials';
@@ -459,25 +460,36 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
                 const logoUrl = localCred?.displayMetadata?.logoUrl;
                 const label = localCred ? getCredentialLabel(localCred) : getCandidateLabel(cand.type);
                 const issuerLabel = parseIssuerLabel(cand.issuer);
+                const disclosedFields = cand.claims?.disclosed ?? [];
 
                 return (
-                  <div
-                    key={query.queryId}
-                    className="bg-white rounded-2xl flex items-center px-4 py-3 shadow-sm"
-                  >
-                    <CredentialThumbnail
-                      backgroundColor={backgroundColor}
-                      textColor={textColor}
-                      logoUrl={logoUrl}
-                      className="mr-4"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{label}</p>
-                      <p className="text-[13px] text-[#8e8e93] truncate">{issuerLabel}</p>
+                  <div key={query.queryId} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                    {/* Credential header row */}
+                    <div className="flex items-center px-4 py-3">
+                      <CredentialThumbnail
+                        backgroundColor={backgroundColor}
+                        textColor={textColor}
+                        logoUrl={logoUrl}
+                        className="mr-4"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-semibold text-[#1c1c1e] truncate">{label}</p>
+                        <p className="text-[13px] text-[#8e8e93] truncate">{issuerLabel}</p>
+                      </div>
                     </div>
-                    <svg width="8" height="14" viewBox="0 0 8 14" fill="none" className="flex-shrink-0 ml-3">
-                      <path d="M1 1l6 6-6 6" stroke="#c7c7cc" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    {/* Disclosed fields */}
+                    {disclosedFields.length > 0 && (
+                      <div className="border-t border-black/[0.04] px-4 py-2.5 flex flex-wrap gap-1.5">
+                        {disclosedFields.map((field) => (
+                          <span
+                            key={field}
+                            className="text-[12px] text-[#8e8e93] bg-black/[0.04] rounded-full px-2.5 py-0.5"
+                          >
+                            {humanizeLabel(field)}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}

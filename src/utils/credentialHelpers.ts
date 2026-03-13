@@ -111,7 +111,17 @@ export function getCredentialLabel(credential: Credential): string {
   const specific = types.filter(
     (t) => t !== 'VerifiableCredential' && t !== 'VerifiableAttestation'
   );
-  if (specific.length > 0) return humanizeLabel(specific[specific.length - 1]);
+  if (specific.length > 0) {
+    const lastSpecific = specific[specific.length - 1];
+    if (lastSpecific.startsWith('http')) {
+      try {
+        const segs = new URL(lastSpecific).pathname.split('/').filter(Boolean);
+        const seg = segs[segs.length - 1];
+        if (seg) return humanizeLabel(seg.replace(/-/g, ' '));
+      } catch { /* fall through */ }
+    }
+    return humanizeLabel(lastSpecific);
+  }
 
   if (credential.docType) {
     const parts = credential.docType.split('.');
@@ -370,6 +380,16 @@ export function getCandidateLabel(types: string[]): string {
     if (DOC_TYPE_DESCRIPTIONS[t]) return DOC_TYPE_DESCRIPTIONS[t];
   }
   const lastType = types[types.length - 1] ?? '';
+
+  // URL-based type: extract and humanize last path segment
+  if (lastType.startsWith('http')) {
+    try {
+      const segs = new URL(lastType).pathname.split('/').filter(Boolean);
+      const seg = segs[segs.length - 1];
+      if (seg) return humanizeLabel(seg.replace(/-/g, ' '));
+    } catch { /* fall through */ }
+  }
+
   const parts = lastType.split('.');
   const meaningful = [...parts].reverse().find((p) => /[a-zA-Z]{2,}/.test(p));
   return meaningful ? humanizeLabel(meaningful) : lastType;
