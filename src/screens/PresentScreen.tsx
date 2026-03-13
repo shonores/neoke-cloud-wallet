@@ -84,6 +84,7 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
   const [skippedX509, setSkippedX509] = useState(false);
   const [selections, setSelections] = useState<Record<string, number>>({});
   const [successResult, setSuccessResult] = useState<{ redirectUri?: string } | null>(null);
+  const [vpClientName, setVpClientName] = useState('');
 
   // Find the best local credential match for a VP candidate so thumbnails use
   // per-credential display metadata (colors, logo) rather than type-only defaults.
@@ -118,7 +119,39 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
     setError('');
     setSkippedX509(false);
     setSelections({});
+    setVpClientName('');
     setCurrentRequestUri(trimmed);
+
+    // Try to extract client_metadata.client_name from the request JWT (inline or remote).
+    // This gives a human-readable verifier name when the node doesn't populate verifier.name.
+    try {
+      const rawUri = trimmed.replace(/^openid[^:]*:\/\//, 'https://x/');
+      const parsedUri = new URL(rawUri);
+      let jwt = parsedUri.searchParams.get('request') ?? '';
+      if (!jwt) {
+        const requestUri = parsedUri.searchParams.get('request_uri');
+        if (requestUri) {
+          const method = (parsedUri.searchParams.get('request_uri_method') ?? 'get').toUpperCase();
+          const res = await fetch(requestUri, {
+            method,
+            headers: { Accept: 'application/oauth-authz-req+jwt, application/jwt, */*' },
+            ...(method === 'POST' ? { body: new URLSearchParams() } : {}),
+          });
+          if (res.ok) jwt = await res.text();
+        }
+      }
+      if (jwt) {
+        const parts = jwt.split('.');
+        if (parts.length >= 2) {
+          const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+          const name = payload?.client_metadata?.client_name;
+          if (name) setVpClientName(name);
+        }
+      }
+    } catch {
+      // CORS or parse failure — fall through, verifier.name will be used instead
+    }
+
     console.log('[neoke:present] calling previewPresentationWithRetry...');
 
     try {
@@ -368,7 +401,7 @@ export default function PresentScreen({ navigate, initialUri, onPresented }: Pre
 
   // ── Consent ──
   if (stage === 'consent' && preview) {
-    const verifierName = preview.verifier.name ?? parseIssuerLabel(preview.verifier.clientId);
+    const verifierName = preview.verifier.name ?? vpClientName ?? parseIssuerLabel(preview.verifier.clientId);
 
     return (
       <div className="flex flex-col min-h-screen bg-[#F2F2F7] overflow-x-hidden">
